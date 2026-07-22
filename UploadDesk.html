@@ -49,6 +49,14 @@
 <script>
   window.__GOOGLE_CLIENT_ID = "86458331541-e0puv97dtu9m2lpjgs6kgkvnvios2n1m.apps.googleusercontent.com";
   window.__YOUTUBE_API_KEY = "AIzaSyCVehGJDnjc3onlfEQlspa_DHl028TVGaA";
+  // TikTok Login Kit — from developers.tiktok.com, "Manage apps" > your app.
+  // TIKTOK_REDIRECT_URI must be added to your app's "Redirect URI" allowlist
+  // exactly, including scheme and trailing slash if any.
+  window.__TIKTOK_CLIENT_KEY = "PASTE_YOUR_TIKTOK_CLIENT_KEY";
+  window.__TIKTOK_REDIRECT_URI = window.location.origin + window.location.pathname;
+  // Cloud Function URL that exchanges the auth code for a token using your
+  // Client Secret server-side (secret must never live in this file).
+  window.__TIKTOK_TOKEN_EXCHANGE_URL = "PASTE_YOUR_CLOUD_FUNCTION_URL";
 </script>
 <script src="https://accounts.google.com/gsi/client" async defer onload="window.__gisReady=true; window.dispatchEvent(new Event('gis-ready'));"></script>
 <script>
@@ -607,6 +615,56 @@ textarea{resize:vertical; min-height:70px;}
 @media (max-width:480px){ .yt-stat-grid{ grid-template-columns:1fr; } .yt-connect-card{ padding:26px 18px; } .yt-video-grid{ grid-template-columns:1fr 1fr; } }
 @media (max-width:360px){ .yt-video-grid{ grid-template-columns:1fr; } }
 
+/* ============================================================
+   TIKTOK — mirrors the .yt-* block above, TikTok branding
+============================================================ */
+.tt-connect-card{ text-align:center; padding:36px 24px; max-width:520px; margin:0 auto; }
+.tt-connect-icon{ width:64px; height:64px; border-radius:18px; background:linear-gradient(135deg, #00F2EA, #000000 55%, #FF0050); color:#fff; display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 16px auto; box-shadow:0 8px 22px rgba(0,0,0,.35); }
+.tt-connect-title{ font-family:var(--font-display); font-weight:700; font-size:18px; margin-bottom:8px; }
+.tt-connect-sub{ font-size:12.5px; color:var(--text-dim); line-height:1.6; max-width:420px; margin:0 auto; }
+.tt-profile-card{ position:relative; overflow:hidden; }
+.tt-profile-banner{ position:absolute; top:0; left:0; right:0; height:58px; background:linear-gradient(120deg, color-mix(in srgb, #00F2EA 18%, transparent), color-mix(in srgb, #000000 10%, transparent) 55%, color-mix(in srgb, #FF0050 16%, transparent)); pointer-events:none; }
+.tt-profile-card .tt-profile-body-inner{ max-width:none; position:relative; z-index:1; }
+.tt-profile-head{ display:flex; align-items:center; gap:14px; margin-bottom:18px; margin-top:46px; flex-wrap:wrap; position:relative; z-index:1; }
+.tt-avatar{ width:72px; height:72px; border-radius:50%; object-fit:cover; background:var(--surface-3); flex-shrink:0; border:3px solid var(--surface); box-shadow:0 0 0 2px #00F2EA, 0 8px 20px rgba(0,0,0,.35); }
+.tt-profile-info{ flex:1; min-width:0; }
+.tt-profile-name{ font-family:var(--font-display); font-weight:700; font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tt-profile-handle{ font-size:12px; color:var(--text-dim); }
+.tt-connected-pill{ display:inline-flex; align-items:center; gap:6px; background:var(--teal-dim); color:var(--teal); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:6px 12px; border-radius:20px; flex-shrink:0; margin-left:auto; align-self:center; }
+@media (max-width:520px){ .tt-connected-pill{ margin-left:0; align-self:flex-start; margin-top:8px; } }
+.tt-stat-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:22px; padding-top:22px; border-top:1px solid var(--border); position:relative; z-index:1; }
+.tt-stat-grid .tt-stat{ padding:16px 20px; display:flex; align-items:center; justify-content:center; gap:14px; text-align:left; }
+.tt-stat-icon{ width:42px; height:42px; border-radius:12px; font-size:17px; display:flex; align-items:center; justify-content:center; margin:0; flex-shrink:0; }
+.tt-stat-text{ display:flex; flex-direction:column; gap:3px; }
+@media (max-width:640px){
+  .tt-stat-grid{ grid-template-columns:repeat(3,1fr); gap:8px; }
+  .tt-stat-grid .tt-stat{ padding:12px 8px; flex-direction:column; gap:6px; text-align:center; }
+  .tt-stat-text{ align-items:center; }
+  .tt-stat-value{ font-size:17px; }
+}
+.tt-stat{ position:relative; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-m); overflow:hidden; transition:transform .18s ease, border-color .18s ease; z-index:1; }
+.tt-stat:hover{ transform:translateY(-3px); border-color:#00F2EA; }
+.tt-stat-followers .tt-stat-icon{ background:rgba(0,242,234,.15); color:#00C9C2; }
+.tt-stat-likes .tt-stat-icon{ background:rgba(255,0,80,.12); color:#FF0050; }
+.tt-stat-videos .tt-stat-icon{ background:var(--surface-3); color:var(--text-dim); }
+.tt-stat-followers{ border-top:3px solid #00F2EA; }
+.tt-stat-likes{ border-top:3px solid #FF0050; }
+.tt-stat-videos{ border-top:3px solid var(--text-faint); }
+.tt-stat-label{ font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; font-weight:600; }
+.tt-stat-value{ font-family:var(--font-mono); font-weight:700; font-size:19px; }
+.tt-bio{ font-size:12.5px; color:var(--text-dim); line-height:1.6; margin-top:14px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; max-width:680px; }
+.tt-profile-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+@media (max-width:520px){ .tt-profile-actions{ flex-direction:column; } .tt-profile-actions .btn{ width:100%; justify-content:center; } }
+.tt-video-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:14px; }
+.tt-video-card{ position:relative; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-m); overflow:hidden; transition:transform .18s ease, border-color .18s ease; }
+.tt-video-card:hover{ transform:translateY(-3px); border-color:#00F2EA; }
+.tt-video-thumb{ width:100%; aspect-ratio:9/16; object-fit:cover; background:var(--surface-3); display:block; }
+.tt-video-info{ padding:10px 12px; }
+.tt-video-title{ font-size:12px; font-weight:700; line-height:1.35; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; margin-bottom:4px; }
+.tt-video-meta{ font-size:10.5px; color:var(--text-faint); }
+.tt-best-badge{ position:absolute; top:8px; right:8px; display:flex; align-items:center; gap:4px; background:#FF0050; color:#fff; font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; text-transform:uppercase; letter-spacing:.3px; }
+@media (max-width:480px){ .tt-stat-grid{ grid-template-columns:1fr; } .tt-connect-card{ padding:26px 18px; } }
+
 /* Filter by date range */
 .yt-filter-bar{ display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; }
 .yt-filter-bar .field{ flex:0 1 220px; min-width:140px; }
@@ -719,6 +777,7 @@ textarea{resize:vertical; min-height:70px;}
       <button class="nav-item" data-view="stats" title="Longer-term trends: totals, consistency, and best category/day"><i class="fa-solid fa-chart-simple"></i>Statistics</button>
       <button class="nav-item" data-view="data" title="Back up, export, import, or erase your data"><i class="fa-solid fa-database"></i>Data</button>
       <button class="nav-item" data-view="youtube" title="Connect your own YouTube channel — separate from your website login"><i class="fa-brands fa-youtube"></i>YouTube</button>
+      <button class="nav-item" data-view="tiktok" title="Connect your own TikTok account — separate from your website login"><i class="fa-brands fa-tiktok"></i>TikTok</button>
       <button class="nav-item" data-view="trash" title="Restore or permanently delete recently removed Shorts and ideas"><i class="fa-solid fa-trash-can"></i>Trash</button>
     </nav>
     <div class="sidebar-foot">
@@ -1158,6 +1217,63 @@ textarea{resize:vertical; min-height:70px;}
         </div>
       </div>
 
+      <div class="view" id="view-tiktok">
+        <div id="tiktokNotConnected">
+          <div class="card tt-connect-card">
+            <div class="tt-connect-icon"><i class="fa-brands fa-tiktok"></i></div>
+            <div class="tt-connect-title">Connect your TikTok account</div>
+            <div class="tt-connect-sub">Optional — link your own TikTok account to see its stats here. Your website login stays completely separate; connecting, switching, or disconnecting never affects your Upload Desk account or data.</div>
+            <button class="btn btn-primary" id="connectTiktokBtn" style="width:100%; justify-content:center; margin-top:18px; background:linear-gradient(135deg, #00F2EA, #000000 55%, #FF0050); border-color:transparent;"><i class="fa-brands fa-tiktok"></i> Continue with TikTok</button>
+            <div class="section-hint" style="margin-top:14px; margin-bottom:0;">You'll sign in with TikTok and grant read-only access to your public profile and video stats. Upload Desk never sees your TikTok password. See our <a href="https://uploaddesk.github.io/UploadDesk/privacy.html" target="_blank" rel="noopener">Privacy Policy</a> for details.</div>
+          </div>
+        </div>
+        <div id="tiktokConnected" style="display:none;">
+          <div class="card tt-profile-card">
+            <div class="tt-profile-banner"></div>
+            <div class="tt-profile-body-inner">
+              <div class="tt-profile-head">
+                <img class="tt-avatar" id="ttAvatar" src="" alt="TikTok avatar">
+                <div class="tt-profile-info">
+                  <div class="tt-profile-name" id="ttDisplayName">—</div>
+                  <div class="tt-profile-handle" id="ttHandle">—</div>
+                </div>
+                <span class="tt-connected-pill"><i class="fa-solid fa-circle-check"></i> Connected</span>
+              </div>
+              <div class="tt-bio" id="ttBio"></div>
+              <div class="section-hint" id="ttConnectedSince" style="margin-top:14px;"></div>
+              <div class="tt-profile-actions">
+                <button class="btn" id="refreshTiktokBtn" title="Pull the latest followers, likes, and video stats"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                <button class="btn" id="switchTiktokBtn"><i class="fa-solid fa-right-left"></i> Switch account</button>
+                <button class="btn" id="disconnectTiktokBtn" style="border-color:var(--accent-dim); color:var(--accent);"><i class="fa-solid fa-link-slash"></i> Disconnect</button>
+              </div>
+              <div class="tt-stat-grid">
+                <div class="tt-stat tt-stat-followers"><div class="tt-stat-icon"><i class="fa-solid fa-users"></i></div><div class="tt-stat-text"><div class="tt-stat-label">Followers</div><div class="tt-stat-value" id="ttFollowers">—</div></div></div>
+                <div class="tt-stat tt-stat-likes"><div class="tt-stat-icon"><i class="fa-solid fa-heart"></i></div><div class="tt-stat-text"><div class="tt-stat-label">Total likes</div><div class="tt-stat-value" id="ttLikes">—</div></div></div>
+                <div class="tt-stat tt-stat-videos"><div class="tt-stat-icon"><i class="fa-solid fa-video"></i></div><div class="tt-stat-text"><div class="tt-stat-label">Videos</div><div class="tt-stat-value" id="ttVideos">—</div></div></div>
+              </div>
+            </div>
+          </div>
+          <div style="height:16px"></div>
+          <div class="grid grid-yt">
+            <div class="card">
+              <div class="section-title">TikTok analytics</div>
+              <div class="section-hint">Based on your most recent videos.</div>
+              <div id="ttAnalyticsList"></div>
+            </div>
+            <div class="card">
+              <div class="section-title">Views per recent video</div>
+              <div class="section-hint">Newest on the right.</div>
+              <div class="chart-wrap yt-chart-tall"><canvas id="ttVideosChart" height="240"></canvas></div>
+            </div>
+          </div>
+          <div style="height:16px"></div>
+          <div class="card">
+            <div class="section-title">Recent videos</div>
+            <div id="ttVideoGrid" class="tt-video-grid"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="view" id="view-trash">
         <div class="card">
           <div class="section-title">Recycle Bin <span class="tag" id="trashCountTag">0 items</span></div>
@@ -1494,6 +1610,7 @@ function fillStateDefaults(s){
   if(s.notifSettings.enabled === undefined) s.notifSettings.enabled = true;
   if(!s.notifSettings.remindersFired || typeof s.notifSettings.remindersFired !== "object") s.notifSettings.remindersFired = {};
   if(!s.youtube || typeof s.youtube !== "object") s.youtube = { connected:false };
+  if(!s.tiktok || typeof s.tiktok !== "object") s.tiktok = { connected:false };
   if(s.competitor === undefined) s.competitor = null;
   // Prune date-keyed bookkeeping older than 60 days so these two objects
   // don't grow forever across months of daily use.
@@ -1693,6 +1810,12 @@ async function forceSyncCheck(){
   closeModalsForDeletedItems();
   refreshAnalytics();
   renderYoutubeProfile();
+  renderTiktokProfile();
+  if(window.__pendingTiktokCode){
+    const code = window.__pendingTiktokCode;
+    window.__pendingTiktokCode = null;
+    exchangeTiktokCodeAndLoad(code);
+  }
   setSyncBadge("synced", "Synced");
 }
 
@@ -2661,6 +2784,10 @@ async function reconnectYoutubeSilently(){
 }
 
 async function connectYoutube(promptMode, loginHint){
+  if(isTiktokConnected()){
+    showToastMsg("You're connected to TikTok — disconnect it first to connect YouTube. Only one platform can be connected at a time.", "fa-solid fa-lock");
+    return;
+  }
   if(!googleClientConfigured()){
     showToastMsg("YouTube connection isn't set up yet — add a Google OAuth Client ID to enable this.", "fa-solid fa-triangle-exclamation");
     return;
@@ -2705,6 +2832,7 @@ function disconnectYoutube(){
       ytVideoSort = "date-desc";
       persist(true);
       renderYoutubeProfile();
+      renderTiktokProfile();
       refreshAnalytics();
       showToastMsg("YouTube channel disconnected — back to manual tracking", "fa-solid fa-link-slash");
     },
@@ -2861,12 +2989,343 @@ function renderYoutubeProfile(){
   } else {
     notConnected.style.display = "block";
     connected.style.display = "none";
+    const lockedByTiktok = isTiktokConnected();
+    const connectBtn = document.getElementById("connectYoutubeBtn");
+    if(connectBtn) connectBtn.disabled = lockedByTiktok;
+    let lockMsg = document.getElementById("ytLockedMsg");
+    if(lockedByTiktok){
+      if(!lockMsg){
+        lockMsg = document.createElement("div");
+        lockMsg.id = "ytLockedMsg";
+        lockMsg.className = "auth-error";
+        lockMsg.style.marginTop = "14px";
+        document.querySelector("#youtubeNotConnected .yt-connect-card").appendChild(lockMsg);
+      }
+      lockMsg.innerHTML = '<i class="fa-solid fa-lock"></i> You\'re connected to TikTok. Disconnect TikTok first to connect YouTube — only one platform can be connected at a time.';
+    } else if(lockMsg){
+      lockMsg.remove();
+    }
   }
 }
 
 function videoEngagementRate(v){
   return v.views>0 ? ((v.likes+v.comments)/v.views)*100 : 0;
 }
+
+/* ============================================================
+   TIKTOK — DESIGN-ONLY STUB
+   ----------------------------------------------------------------
+   No real TikTok API calls yet. "Connect" fills state.tiktok with
+   mock data purely so the design/layout can be reviewed. Swap
+   connectTiktokMock() for a real OAuth + API call later, and
+   fetchTiktokVideosMock() for a real videos.list call — everything
+   else (renderTiktokProfile, chart, grid) is written to work the
+   same way it will once real data comes in.
+============================================================ */
+function isTiktokConnected(){
+  return !!(state.tiktok && state.tiktok.connected);
+}
+
+/* ============================================================
+   TIKTOK — REAL OAUTH + API CALLS
+   ----------------------------------------------------------------
+   Uses TikTok Login Kit's PKCE authorization-code flow. The Client
+   Secret can never live in this file, so the actual code-for-token
+   exchange happens server-side via window.__TIKTOK_TOKEN_EXCHANGE_URL
+   (a Cloud Function you deploy separately — see the companion snippet).
+   The access token itself is kept in memory only, for this browser
+   session, same pattern as the YouTube connection above.
+============================================================ */
+let ttAccessToken = null;
+let ttAccessTokenAcquiredAt = null;
+
+function tiktokClientConfigured(){
+  return !!(window.__TIKTOK_CLIENT_KEY && !window.__TIKTOK_CLIENT_KEY.startsWith("PASTE_YOUR"));
+}
+function tiktokExchangeConfigured(){
+  return !!(window.__TIKTOK_TOKEN_EXCHANGE_URL && !window.__TIKTOK_TOKEN_EXCHANGE_URL.startsWith("PASTE_YOUR"));
+}
+
+function randomUrlSafeString(length){
+  const arr = new Uint8Array(length);
+  if(window.crypto && crypto.getRandomValues) crypto.getRandomValues(arr);
+  else for(let i=0;i<arr.length;i++) arr[i] = Math.floor(Math.random()*256);
+  return bufToHex(arr).slice(0, length);
+}
+async function sha256Base64Url(str){
+  const enc = new TextEncoder();
+  const digest = await crypto.subtle.digest("SHA-256", enc.encode(str));
+  let binary = "";
+  new Uint8Array(digest).forEach(b=> binary += String.fromCharCode(b));
+  return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+
+// Kicks off the real TikTok login — redirects the whole page to TikTok's
+// authorize screen (Login Kit for Web is redirect-based, not a popup).
+async function connectTiktok(){
+  if(isYoutubeConnected()){
+    showToastMsg("You're connected to YouTube — disconnect it first to connect TikTok. Only one platform can be connected at a time.", "fa-solid fa-lock");
+    return;
+  }
+  if(!tiktokClientConfigured()){
+    showToastMsg("TikTok connection isn't set up yet — add your TikTok Client Key.", "fa-solid fa-triangle-exclamation");
+    return;
+  }
+  const verifier = randomUrlSafeString(64);
+  const challenge = await sha256Base64Url(verifier);
+  const oauthState = randomUrlSafeString(24);
+  try{
+    sessionStorage.setItem("tt_pkce_verifier", verifier);
+    sessionStorage.setItem("tt_oauth_state", oauthState);
+  }catch(e){}
+
+  const url = new URL("https://www.tiktok.com/v2/auth/authorize/");
+  url.searchParams.set("client_key", window.__TIKTOK_CLIENT_KEY);
+  url.searchParams.set("scope", "user.info.basic,user.info.profile,user.info.stats,video.list");
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("redirect_uri", window.__TIKTOK_REDIRECT_URI);
+  url.searchParams.set("state", oauthState);
+  url.searchParams.set("code_challenge", challenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  window.location.href = url.toString();
+}
+
+// Called once, after TikTok redirects back here with ?code=...&state=...
+// (see the page-load capture IIFE near the bottom of this script).
+async function exchangeTiktokCodeAndLoad(code){
+  const verifier = sessionStorage.getItem("tt_pkce_verifier");
+  try{
+    sessionStorage.removeItem("tt_pkce_verifier");
+    sessionStorage.removeItem("tt_oauth_state");
+  }catch(e){}
+  if(!verifier){
+    showToastMsg("TikTok sign-in session expired — please try connecting again.", "fa-solid fa-triangle-exclamation");
+    return;
+  }
+  if(!tiktokExchangeConfigured()){
+    showToastMsg("TikTok sign-in isn't fully set up yet — the token exchange server isn't configured.", "fa-solid fa-triangle-exclamation");
+    return;
+  }
+  try{
+    const res = await fetch(window.__TIKTOK_TOKEN_EXCHANGE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, code_verifier: verifier, redirect_uri: window.__TIKTOK_REDIRECT_URI })
+    });
+    if(!res.ok) throw new Error("exchange-failed");
+    const tokenData = await res.json();
+    if(!tokenData.access_token) throw new Error("no-token");
+    ttAccessToken = tokenData.access_token;
+    ttAccessTokenAcquiredAt = Date.now();
+
+    const profile = await fetchTiktokUserInfo(ttAccessToken);
+    const videos = await fetchTiktokVideoList(ttAccessToken);
+
+    state.tiktok = {
+      connected: true,
+      openId: profile.open_id || "",
+      displayName: profile.display_name || "Connected account",
+      handle: profile.username ? "@"+profile.username : "",
+      bio: profile.bio_description || "",
+      avatar: profile.avatar_url || "",
+      followers: Number(profile.follower_count || 0),
+      likes: Number(profile.likes_count || 0),
+      videos: Number(profile.video_count || 0),
+      connectedAt: new Date().toISOString(),
+      recentVideos: videos,
+    };
+    persist(true);
+    renderTiktokProfile();
+    showToastMsg(`Connected to ${state.tiktok.displayName}`, "fa-brands fa-tiktok");
+  }catch(err){
+    console.error("TikTok connect failed:", err);
+    showToastMsg("Couldn't complete TikTok sign-in — please try again.", "fa-solid fa-triangle-exclamation");
+  }
+}
+
+// Public profile + stats — requires user.info.basic, user.info.profile,
+// and user.info.stats scopes (all requested in connectTiktok() above).
+async function fetchTiktokUserInfo(token){
+  const fields = "open_id,avatar_url,display_name,username,bio_description,follower_count,likes_count,video_count";
+  const res = await fetch(`https://open.tiktokapis.com/v2/user/info/?fields=${fields}`, {
+    headers: { Authorization: "Bearer " + token }
+  });
+  if(!res.ok) throw new Error("tiktok-userinfo-failed");
+  const data = await res.json();
+  return (data.data && data.data.user) || {};
+}
+
+// Recent videos — requires the video.list scope.
+async function fetchTiktokVideoList(token){
+  try{
+    const fields = "id,title,cover_image_url,create_time,view_count,like_count,comment_count,share_count";
+    const res = await fetch(`https://open.tiktokapis.com/v2/video/list/?fields=${fields}`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ max_count: 20 })
+    });
+    if(!res.ok) return [];
+    const data = await res.json();
+    const videos = (data.data && data.data.videos) || [];
+    return videos.map(v=>({
+      id: v.id,
+      title: v.title || "Untitled TikTok",
+      thumb: v.cover_image_url || "",
+      publishedAt: new Date(Number(v.create_time)*1000).toISOString(),
+      views: Number(v.view_count||0),
+      likes: Number(v.like_count||0),
+      comments: Number(v.comment_count||0),
+    })).sort((a,b)=> new Date(a.publishedAt)-new Date(b.publishedAt));
+  }catch(e){
+    return [];
+  }
+}
+
+// Re-pulls fresh stats using the token already in memory. TikTok access
+// tokens are short-lived (a few hours) — once it expires, this will fail
+// and the person needs to reconnect (a refresh-token flow, which also
+// needs the server-side Cloud Function, can be added later if needed).
+async function refreshTiktokProfile(){
+  if(!state.tiktok || !state.tiktok.connected) return;
+  if(!ttAccessToken){
+    showToastMsg("Your TikTok session expired — click Switch account to reconnect.", "fa-solid fa-triangle-exclamation");
+    return;
+  }
+  const btn = document.getElementById("refreshTiktokBtn");
+  const originalHtml = btn ? btn.innerHTML : "";
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Refreshing…'; }
+  try{
+    const profile = await fetchTiktokUserInfo(ttAccessToken);
+    const videos = await fetchTiktokVideoList(ttAccessToken);
+    state.tiktok = Object.assign({}, state.tiktok, {
+      displayName: profile.display_name || state.tiktok.displayName,
+      handle: profile.username ? "@"+profile.username : state.tiktok.handle,
+      bio: profile.bio_description || state.tiktok.bio,
+      avatar: profile.avatar_url || state.tiktok.avatar,
+      followers: Number(profile.follower_count || 0),
+      likes: Number(profile.likes_count || 0),
+      videos: Number(profile.video_count || 0),
+      recentVideos: videos,
+    });
+    persist(true);
+    renderTiktokProfile();
+    showToastMsg("TikTok stats refreshed", "fa-solid fa-rotate");
+  }catch(err){
+    showToastMsg("Couldn't refresh — your TikTok session may have expired. Try Switch account.", "fa-solid fa-triangle-exclamation");
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = originalHtml; }
+  }
+}
+
+function disconnectTiktok(){
+  showConfirm(
+    "Disconnect your TikTok account? Your website account and all your Upload Desk data stay exactly as they are — this only removes the TikTok link.",
+    ()=>{
+      ttAccessToken = null;
+      ttAccessTokenAcquiredAt = null;
+      state.tiktok = { connected:false };
+      persist(true);
+      renderTiktokProfile();
+      renderYoutubeProfile();
+      showToastMsg("TikTok account disconnected", "fa-solid fa-link-slash");
+    },
+    {title:"Disconnect TikTok account?", confirmLabel:"Disconnect"}
+  );
+}
+
+function renderTiktokProfile(){
+  const notConnected = document.getElementById("tiktokNotConnected");
+  const connected = document.getElementById("tiktokConnected");
+  if(!notConnected || !connected) return;
+  const tt = state.tiktok || { connected:false };
+  if(tt.connected){
+    notConnected.style.display = "none";
+    connected.style.display = "block";
+    document.getElementById("ttAvatar").src = tt.avatar || "";
+    document.getElementById("ttDisplayName").textContent = tt.displayName || "Connected account";
+    document.getElementById("ttHandle").textContent = tt.handle || "";
+    document.getElementById("ttBio").textContent = tt.bio || "";
+    document.getElementById("ttFollowers").textContent = (tt.followers||0).toLocaleString();
+    document.getElementById("ttLikes").textContent = (tt.likes||0).toLocaleString();
+    document.getElementById("ttVideos").textContent = (tt.videos||0).toLocaleString();
+    document.getElementById("ttConnectedSince").textContent = tt.connectedAt ? `Connected ${new Date(tt.connectedAt).toLocaleString()}` : "";
+    renderTiktokAnalytics(tt);
+  } else {
+    notConnected.style.display = "block";
+    connected.style.display = "none";
+    const lockedByYoutube = isYoutubeConnected();
+    const connectBtn = document.getElementById("connectTiktokBtn");
+    if(connectBtn) connectBtn.disabled = lockedByYoutube;
+    let lockMsg = document.getElementById("ttLockedMsg");
+    if(lockedByYoutube){
+      if(!lockMsg){
+        lockMsg = document.createElement("div");
+        lockMsg.id = "ttLockedMsg";
+        lockMsg.className = "auth-error";
+        lockMsg.style.marginTop = "14px";
+        document.querySelector("#tiktokNotConnected .tt-connect-card").appendChild(lockMsg);
+      }
+      lockMsg.innerHTML = '<i class="fa-solid fa-lock"></i> You\'re connected to YouTube. Disconnect YouTube first to connect TikTok — only one platform can be connected at a time.';
+    } else if(lockMsg){
+      lockMsg.remove();
+    }
+  }
+}
+
+function renderTiktokAnalytics(tt){
+  const listEl = document.getElementById("ttAnalyticsList");
+  const gridEl = document.getElementById("ttVideoGrid");
+  if(!listEl || !gridEl) return;
+  const videos = tt.recentVideos || [];
+  if(videos.length===0){
+    listEl.innerHTML = `<div class="empty-state" style="padding:20px;"><i class="fa-solid fa-chart-simple"></i><div>No recent videos found yet.</div></div>`;
+    gridEl.innerHTML = "";
+    return;
+  }
+  const totalViews = videos.reduce((s,v)=>s+v.views,0);
+  const avgViews = Math.round(totalViews/videos.length);
+  const totalLikes = videos.reduce((s,v)=>s+v.likes,0);
+  const totalComments = videos.reduce((s,v)=>s+v.comments,0);
+  const engagementRate = totalViews>0 ? (((totalLikes+totalComments)/totalViews)*100).toFixed(2) : "0.00";
+  const best = videos.reduce((b,v)=> (!b||v.views>b.views)?v:b, null);
+
+  listEl.innerHTML = [
+    ["Average views","fa-solid fa-chart-simple","#00C9C2", avgViews.toLocaleString()],
+    ["Total views","fa-solid fa-eye","#FF0050", totalViews.toLocaleString()],
+    ["Total likes","fa-solid fa-heart","#00C9C2", totalLikes.toLocaleString()],
+    ["Total comments","fa-solid fa-comment","#FF0050", totalComments.toLocaleString()],
+    ["Engagement rate","fa-solid fa-bolt","#00C9C2", engagementRate+"%"],
+  ].map(([label,icon,color,val])=>
+    `<div class="stat-list-item"><span class="k" style="display:flex; align-items:center; gap:8px;"><span style="width:22px; height:22px; border-radius:6px; background:${color}22; color:${color}; display:inline-flex; align-items:center; justify-content:center; font-size:10.5px; flex-shrink:0;"><i class="${icon}"></i></span>${label}</span><span class="v">${escapeHtml(String(val))}</span></div>`
+  ).join("");
+
+  gridEl.innerHTML = videos.map(v=>`
+    <div class="tt-video-card">
+      <div class="tt-video-thumb" style="display:flex; align-items:center; justify-content:center; color:var(--text-faint);"><i class="fa-brands fa-tiktok" style="font-size:22px;"></i></div>
+      <div class="tt-video-info">
+        <div class="tt-video-title" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
+        <div class="tt-video-meta">${v.views.toLocaleString()} views · ${v.likes.toLocaleString()} likes</div>
+      </div>
+      ${best && v.id===best.id ? '<span class="tt-best-badge"><i class="fa-solid fa-star"></i> Top</span>' : ''}
+    </div>`).join("");
+
+  if(chartLibReady("ttVideosChart")){
+    const ctx = document.getElementById("ttVideosChart");
+    if(window.__chartTiktokVideos) window.__chartTiktokVideos.destroy();
+    window.__chartTiktokVideos = new Chart(ctx, {
+      type:"bar",
+      data:{ labels: videos.map((v,i)=>"Vid "+(i+1)), datasets:[{ label:"Views", data: videos.map(v=>v.views), backgroundColor:"#00C9C2", borderRadius:6, maxBarThickness:34 }]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false} },
+        scales:{ x:{grid:{color:chartGridColor()}, ticks:{color:chartTextColor()}}, y:{grid:{color:chartGridColor()}, ticks:{color:chartTextColor()}} } }
+    });
+  }
+}
+
+document.getElementById("connectTiktokBtn").addEventListener("click", connectTiktok);
+document.getElementById("switchTiktokBtn").addEventListener("click", connectTiktok);
+document.getElementById("refreshTiktokBtn").addEventListener("click", refreshTiktokProfile);
+document.getElementById("disconnectTiktokBtn").addEventListener("click", disconnectTiktok);
 
 /* ============================================================
    MONTHLY SUBSCRIBER TRACKING
@@ -3494,6 +3953,7 @@ const VIEW_META = {
   stats:{title:"Statistics", sub:"Long-term trends across your channel"},
   data:{title:"Data Management", sub:"Backups, exports, and storage"},
   youtube:{title:"YouTube Profile", sub:"Optional — link your own channel"},
+  tiktok:{title:"TikTok Profile", sub:"Optional — link your own TikTok account"},
   trash:{title:"Trash", sub:"Restore or permanently delete recently removed items"},
 };
 
@@ -3526,6 +3986,7 @@ function activateView(v, opts){
       autoRefreshYoutubeStatsSilently();
     }
   }
+  if(v==="tiktok") renderTiktokProfile();
   if(v==="trash") renderTrash();
   if(v==="compare"){
     if(state.competitor) document.getElementById("competitorInput").value = state.competitor.handle || state.competitor.channelId;
@@ -6148,6 +6609,11 @@ function initApp(){
   }
   activateView(state.lastView || "dashboard", {skipPersist:true});
   renderYoutubeProfile();
+  if(window.__pendingTiktokCode){
+    const code = window.__pendingTiktokCode;
+    window.__pendingTiktokCode = null;
+    exchangeTiktokCodeAndLoad(code);
+  }
   // Watch hours need a live OAuth token, which only lives in memory and
   // expires after about an hour — so it has to be silently re-acquired
   // periodically. attemptSilentYoutubeAuth() uses prompt:"none", so if the
@@ -6213,6 +6679,30 @@ setInterval(async ()=>{
       if(currentUser) checkAndFireNotifications();
     }
   });
+})();
+
+// TikTok redirects the whole page back here after login with ?code=...
+// and ?state=.... This must run as early as possible (before Firebase
+// auth resolves), so the code/state are captured and the URL is cleaned
+// immediately — the actual token exchange happens later, once the person
+// is signed into their Upload Desk account (see initApp()).
+(function captureTiktokRedirect(){
+  try{
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const returnedState = params.get("state");
+    if(code){
+      const expectedState = sessionStorage.getItem("tt_oauth_state");
+      if(returnedState && expectedState && returnedState === expectedState){
+        window.__pendingTiktokCode = code;
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.delete("code");
+      url.searchParams.delete("state");
+      url.searchParams.delete("scopes");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }catch(e){}
 })();
 
 // Testing helper: visiting the app with ?resetApp=1 in the URL wipes every
