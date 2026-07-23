@@ -4666,6 +4666,63 @@ document.getElementById("sidebarScrim").addEventListener("click", ()=>{
 });
 
 /* ============================================================
+   MOBILE SWIPE GESTURES FOR SIDEBAR
+   ----------------------------------------------------------------
+   Swipe right starting near the left edge of the screen to open the
+   sidebar; swipe left anywhere (while it's open) to close it. Only
+   active on phone-sized screens, matching the sidebar's existing
+   mobile breakpoint (max-width: 760px).
+============================================================ */
+(function setupSidebarSwipeGestures(){
+  const EDGE_ZONE_PX = 24;      // how close to the left edge a swipe must start to open the sidebar
+  const SWIPE_THRESHOLD_PX = 60; // minimum horizontal distance to count as a deliberate swipe
+  const MAX_VERTICAL_DRIFT = 60; // cancel if the touch drifts too far vertically (likely a scroll, not a swipe)
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchActive = false;
+  let startedAtEdge = false;
+
+  function isMobileWidth(){
+    return window.innerWidth <= 760;
+  }
+
+  document.addEventListener("touchstart", (e)=>{
+    if(!isMobileWidth()) return;
+    if(e.touches.length !== 1) return;
+    const t = e.touches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchActive = true;
+    startedAtEdge = t.clientX <= EDGE_ZONE_PX;
+  }, {passive:true});
+
+  document.addEventListener("touchend", (e)=>{
+    if(!touchActive || !isMobileWidth()) { touchActive = false; return; }
+    touchActive = false;
+    const t = e.changedTouches[0];
+    if(!t) return;
+    const deltaX = t.clientX - touchStartX;
+    const deltaY = Math.abs(t.clientY - touchStartY);
+    if(deltaY > MAX_VERTICAL_DRIFT) return; // too vertical — probably a scroll
+
+    const sidebar = document.getElementById("sidebar");
+    const scrim = document.getElementById("sidebarScrim");
+    const isOpen = sidebar.classList.contains("open");
+
+    if(!isOpen && startedAtEdge && deltaX > SWIPE_THRESHOLD_PX){
+      // Swiped right from the left edge — open the sidebar
+      sidebar.classList.add("open");
+      scrim.classList.add("show");
+    } else if(isOpen && deltaX < -SWIPE_THRESHOLD_PX){
+      // Swiped left while open — close the sidebar
+      sidebar.classList.remove("open");
+      scrim.classList.remove("show");
+    }
+  }, {passive:true});
+})();
+
+/* ============================================================
    DASHBOARD
 ============================================================ */
 let chartDaily=null, chartStatus=null, chartCategory=null, chartPerformance=null, chartYoutubeVideos=null, chartYoutubeEngagement=null, chartYoutubeRetention=null;
