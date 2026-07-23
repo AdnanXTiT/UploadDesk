@@ -3472,7 +3472,7 @@ function renderTiktokAnalytics(tt){
 
   const sortedForGrid = sortVideos(videos, ttVideoSort);
   gridEl.innerHTML = sortedForGrid.map(v=>`
-    <div class="tt-video-card">
+    <div class="tt-video-card" data-video-id="${v.id}" style="cursor:pointer;" title="Click for full stats">
       ${v.thumb ? `<img class="tt-video-thumb" src="${v.thumb}" alt="" loading="lazy">` : `<div class="tt-video-thumb" style="display:flex; align-items:center; justify-content:center; color:var(--text-faint);"><i class="fa-brands fa-tiktok" style="font-size:22px;"></i></div>`}
       <div class="tt-video-info">
         <div class="tt-video-title" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
@@ -3481,6 +3481,9 @@ function renderTiktokAnalytics(tt){
       </div>
       ${best && v.id===best.id ? '<span class="tt-best-badge"><i class="fa-solid fa-star"></i> Top</span>' : ''}
     </div>`).join("");
+  gridEl.querySelectorAll(".tt-video-card[data-video-id]").forEach(card=>{
+    card.addEventListener("click", ()=> openTtVideoModal(card.dataset.videoId));
+  });
 
   const chartLabel = v => v.title.length>14 ? v.title.slice(0,14)+"…" : v.title;
 
@@ -3876,10 +3879,48 @@ function openYtVideoModal(videoId){
     ${v.avgViewPercent != null ? `<div class="stat-list-item"><span class="k">Average retention</span><span class="v">${v.avgViewPercent.toFixed(1)}%</span></div>` : ""}
     <div class="stat-list-item"><span class="k">Rank by views</span><span class="v">#${rank} of ${rankPool.length} shown</span></div>
   `;
-  document.getElementById("ytVideoModalWatchBtn").href = `https://www.youtube.com/watch?v=${v.id}`;
-  document.getElementById("ytVideoModalStudioBtn").href = `https://studio.youtube.com/video/${v.id}/edit`;
+  const ytWatchBtn = document.getElementById("ytVideoModalWatchBtn");
+  ytWatchBtn.href = `https://www.youtube.com/watch?v=${v.id}`;
+  ytWatchBtn.innerHTML = '<i class="fa-brands fa-youtube"></i> Watch on YouTube';
+  const ytStudioBtn = document.getElementById("ytVideoModalStudioBtn");
+  ytStudioBtn.style.display = "";
+  ytStudioBtn.href = `https://studio.youtube.com/video/${v.id}/edit`;
   ytVideoModalOverlay.dataset.thumbUrl = v.thumb || "";
   ytVideoModalOverlay.dataset.thumbTitle = v.title || "video-thumbnail";
+  ytVideoModalOverlay.classList.add("open");
+}
+
+function openTtVideoModal(videoId){
+  const tt = state.tiktok || {};
+  const videos = tt.recentVideos || [];
+  const v = videos.find(x=>x.id===videoId);
+  if(!v) return;
+  document.getElementById("ytVideoModalTitle").textContent = v.title;
+
+  const engagement = videoEngagementRate(v);
+  const likeRatio = v.views>0 ? ((v.likes/v.views)*100).toFixed(2) : "0.00";
+  const commentRatio = v.views>0 ? ((v.comments/v.views)*100).toFixed(2) : "0.00";
+  const sortedByViews = [...videos].sort((a,b)=>b.views-a.views);
+  const rank = sortedByViews.findIndex(x=>x.id===v.id)+1;
+
+  document.getElementById("ytVideoModalBody").innerHTML = `
+    <img src="${v.thumb}" alt="" style="width:100%; border-radius:var(--radius-m); margin-bottom:16px; max-height:460px; aspect-ratio:9/16; object-fit:cover; background:var(--surface-3);">
+    <div class="stat-list-item"><span class="k">Published</span><span class="v">${new Date(v.publishedAt).toLocaleString()}</span></div>
+    <div class="stat-list-item"><span class="k">Views</span><span class="v">${v.views.toLocaleString()}</span></div>
+    <div class="stat-list-item"><span class="k">Likes</span><span class="v">${v.likes.toLocaleString()} (${likeRatio}% of views)</span></div>
+    <div class="stat-list-item"><span class="k">Comments</span><span class="v">${v.comments.toLocaleString()} (${commentRatio}% of views)</span></div>
+    <div class="stat-list-item"><span class="k">Engagement rate</span><span class="v">${engagement.toFixed(2)}%</span></div>
+    <div class="stat-list-item"><span class="k">Rank by views</span><span class="v">#${rank} of ${videos.length} shown</span></div>
+  `;
+
+  const handle = (tt.handle||"").replace(/^@/,"");
+  const watchBtn = document.getElementById("ytVideoModalWatchBtn");
+  watchBtn.href = handle ? `https://www.tiktok.com/@${handle}/video/${v.id}` : "#";
+  watchBtn.innerHTML = '<i class="fa-brands fa-tiktok"></i> Watch on TikTok';
+  document.getElementById("ytVideoModalStudioBtn").style.display = "none";
+
+  ytVideoModalOverlay.dataset.thumbUrl = v.thumb || "";
+  ytVideoModalOverlay.dataset.thumbTitle = v.title || "tiktok-thumbnail";
   ytVideoModalOverlay.classList.add("open");
 }
 
