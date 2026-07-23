@@ -3151,7 +3151,7 @@ async function sha256Base64Url(str){
 
 // Kicks off the real TikTok login — redirects the whole page to TikTok's
 // authorize screen (Login Kit for Web is redirect-based, not a popup).
-async function connectTiktok(){
+async function connectTiktok(forceSwitch){
   if(isYoutubeConnected()){
     showToastMsg("You're connected to YouTube — disconnect it first to connect TikTok. Only one platform can be connected at a time.", "fa-solid fa-lock");
     return;
@@ -3176,6 +3176,11 @@ async function connectTiktok(){
   url.searchParams.set("state", oauthState);
   url.searchParams.set("code_challenge", challenge);
   url.searchParams.set("code_challenge_method", "S256");
+  // Forces TikTok to show the login/account-chooser screen instead of
+  // silently re-authorizing whichever account is already logged into
+  // tiktok.com in this browser — without this, "Switch account" just
+  // reconnects the same account every time.
+  if(forceSwitch) url.searchParams.set("disable_auto_auth", "1");
   window.location.href = url.toString();
 }
 
@@ -3414,8 +3419,8 @@ function renderTiktokAnalytics(tt){
   }
 }
 
-document.getElementById("connectTiktokBtn").addEventListener("click", connectTiktok);
-document.getElementById("switchTiktokBtn").addEventListener("click", connectTiktok);
+document.getElementById("connectTiktokBtn").addEventListener("click", ()=> connectTiktok(false));
+document.getElementById("switchTiktokBtn").addEventListener("click", ()=> connectTiktok(true));
 document.getElementById("refreshTiktokBtn").addEventListener("click", refreshTiktokProfile);
 document.getElementById("disconnectTiktokBtn").addEventListener("click", disconnectTiktok);
 
