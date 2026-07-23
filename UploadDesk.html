@@ -783,7 +783,7 @@ textarea{resize:vertical; min-height:70px;}
     <div class="sidebar-foot">
       <div class="sync-badge synced" id="syncBadge"><i class="fa-solid fa-circle"></i><span id="syncBadgeLabel">Saved</span></div>
       <div class="streak-pill" title="Consecutive days in a row with an Uploaded Short"><i class="fa-solid fa-fire"></i><span id="streakSidebar">0-day streak</span></div>
-      <button class="account-pill" id="accountSettingsBtn" type="button" title="Change your username or password"><i class="fa-solid fa-circle-user"></i><span id="accountUsername">—</span><i class="fa-solid fa-chevron-right chev"></i></button>
+      <button class="account-pill" id="accountSettingsBtn" type="button" title="Change your password"><i class="fa-solid fa-circle-user"></i><span id="accountUsername">—</span><i class="fa-solid fa-chevron-right chev"></i></button>
       <button class="btn btn-ghost" id="helpBtn" style="width:100%; justify-content:center;" title="Open the quick guide to every screen and button"><i class="fa-solid fa-circle-question"></i> How this works</button>
       <button class="btn btn-ghost" id="themeToggle" style="width:100%; justify-content:center;" title="Switch between dark and light appearance"><i class="fa-solid fa-moon"></i> <span id="themeLabel">Dark mode</span></button>
       <button class="btn btn-ghost" id="logoutBtn" style="width:100%; justify-content:center;" title="Sign out of this account on this device"><i class="fa-solid fa-arrow-right-from-bracket"></i> Log out</button>
@@ -978,13 +978,28 @@ textarea{resize:vertical; min-height:70px;}
       <div class="view" id="view-compare">
         <div class="card" style="margin-bottom:18px;">
           <div class="section-title" id="competitorCardTitle">Competitor benchmark</div>
-          <div class="section-hint" id="competitorCardHint">Track a public channel's subscriber/view/video counts to see how you stack up. Uses only public stats — no login required for them.</div>
+          <div class="section-hint" id="competitorCardHint">Look up any public YouTube channel by handle, ID, or URL to compare its subscribers, views, and video count against yours.</div>
           <div class="compare-picker" id="competitorPickerRow">
             <div class="field" style="min-width:220px;"><label id="competitorInputLabel">Channel handle, ID, or URL</label><input class="field-input" id="competitorInput" placeholder="e.g. @mkbhd or UCxxxxxxxx"></div>
             <button class="btn btn-primary" id="trackCompetitorBtn"><i class="fa-solid fa-crosshairs"></i> Track</button>
             <button class="btn" id="removeCompetitorBtn" style="display:none;"><i class="fa-solid fa-xmark"></i> Remove</button>
           </div>
           <div id="competitorResult"></div>
+        </div>
+        <div class="card" style="margin-bottom:18px;" id="tiktokCompetitorCard">
+          <div class="section-title">TikTok competitor benchmark <span class="tag">Manual entry</span></div>
+          <div class="section-hint">TikTok accounts can't be looked up automatically, so add their numbers yourself — open their profile, copy what's shown, and paste it in below. Update it anytime to keep the comparison current.</div>
+          <div class="form-grid" id="ttCompetitorForm">
+            <div class="field"><label>Account handle</label><input class="field-input" id="ttCompInput-handle" placeholder="e.g. @username"></div>
+            <div class="field"><label>Followers</label><input type="number" class="field-input" id="ttCompInput-followers" placeholder="0"></div>
+            <div class="field"><label>Total likes</label><input type="number" class="field-input" id="ttCompInput-likes" placeholder="0"></div>
+            <div class="field"><label>Videos</label><input type="number" class="field-input" id="ttCompInput-videos" placeholder="0"></div>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+            <button class="btn btn-primary" id="saveTtCompetitorBtn"><i class="fa-solid fa-crosshairs"></i> Save & compare</button>
+            <button class="btn" id="removeTtCompetitorBtn" style="display:none;"><i class="fa-solid fa-xmark"></i> Remove</button>
+          </div>
+          <div id="ttCompetitorResult"></div>
         </div>
         <div class="card" style="margin-bottom:18px;">
           <div class="section-title">Choose comparison</div>
@@ -1092,6 +1107,7 @@ textarea{resize:vertical; min-height:70px;}
             </div>
 
             <div id="ytEmailStep">
+              <div class="section-hint" style="margin-top:0; margin-bottom:10px;">We'll email you a code to confirm this address, then open a Google sign-in prompt for that account's channel.</div>
               <input class="field-input" id="ytEmailInput" type="email" placeholder="Enter your email" style="margin-bottom:12px;">
               <button class="btn" id="ytSendCodeBtn" style="width:100%; justify-content:center;">Continue with email</button>
               <div class="auth-error" id="ytEmailError" style="margin-top:8px;"></div>
@@ -1579,7 +1595,11 @@ textarea{resize:vertical; min-height:70px;}
       </div>
       <div class="help-section">
         <h4><i class="fa-solid fa-database"></i>Data</h4>
-        <p>Export a backup (JSON), a spreadsheet (CSV or Excel), import a previous JSON backup, or permanently erase everything. Everything also saves automatically in this browser's local storage as you work — these tools are for backing up or transferring your data to another browser or device.</p>
+        <p>Export a backup (JSON), a spreadsheet (CSV or Excel), import a previous JSON backup, or permanently erase everything. Everything also saves automatically to your account in the cloud as you work — these tools are for extra backups or moving your data to somewhere outside Upload Desk.</p>
+      </div>
+      <div class="help-section">
+        <h4><i class="fa-brands fa-youtube"></i>YouTube &amp; TikTok</h4>
+        <p>Optional — connect one platform (only one at a time) to replace manual Planner tracking with real, automatically-refreshed stats on the Dashboard, Compare, and Statistics screens. This is a separate sign-in from your Upload Desk account, using read-only access; disconnecting never affects your Upload Desk data. Once connected, the Planner becomes a personal notepad and no longer feeds those screens.</p>
       </div>
       <div class="help-divider"></div>
       <div class="help-section">
@@ -1646,6 +1666,7 @@ function fillStateDefaults(s){
   if(!s.youtube || typeof s.youtube !== "object") s.youtube = { connected:false };
   if(!s.tiktok || typeof s.tiktok !== "object") s.tiktok = { connected:false };
   if(s.competitor === undefined) s.competitor = null;
+  if(s.tiktokCompetitor === undefined) s.tiktokCompetitor = null;
   // Prune date-keyed bookkeeping older than 60 days so these two objects
   // don't grow forever across months of daily use.
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-60);
@@ -4317,6 +4338,7 @@ function activateView(v, opts){
   if(v==="compare"){
     if(state.competitor) document.getElementById("competitorInput").value = state.competitor.handle || state.competitor.channelId;
     renderCompetitorBenchmark();
+    renderTtCompetitorBenchmark();
     if(lastCompare){
       document.getElementById("compareMode").value = lastCompare.mode;
       const aField = document.getElementById("dateAField");
@@ -6408,15 +6430,15 @@ function updateCompetitorCardCopy(){
   const pickerRow = document.getElementById("competitorPickerRow");
   if(!titleEl) return;
   if(isTiktokConnected()){
-    titleEl.textContent = "Competitor benchmark (YouTube only)";
-    hintEl.textContent = "TikTok doesn't provide a public API for looking up other accounts' stats, so this feature only supports YouTube channels — your own TikTok numbers still appear everywhere else in the app.";
+    titleEl.textContent = "Competitor benchmark (YouTube channels only)";
+    hintEl.textContent = "This lookup works for YouTube channels only. Use the TikTok competitor card below to compare TikTok accounts instead.";
     labelEl.textContent = "YouTube channel handle, ID, or URL";
     inputEl.disabled = true;
     inputEl.placeholder = "Not available while TikTok is connected";
     pickerRow.style.opacity = ".55";
   } else {
     titleEl.textContent = "Competitor benchmark";
-    hintEl.textContent = "Track a public channel's subscriber/view/video counts to see how you stack up. Uses only public stats — no login required for them.";
+    hintEl.textContent = "Look up any public YouTube channel by handle, ID, or URL to compare its subscribers, views, and video count against yours.";
     labelEl.textContent = "Channel handle, ID, or URL";
     inputEl.disabled = false;
     inputEl.placeholder = "e.g. @mkbhd or UCxxxxxxxx";
@@ -6485,6 +6507,81 @@ function renderCompetitorBenchmark(){
 }
 document.getElementById("trackCompetitorBtn").addEventListener("click", trackCompetitor);
 document.getElementById("removeCompetitorBtn").addEventListener("click", removeCompetitor);
+
+/* ============================================================
+   TIKTOK COMPETITOR BENCHMARK — manual entry (no API available)
+============================================================ */
+function saveTtCompetitor(){
+  const handle = document.getElementById("ttCompInput-handle").value.trim();
+  const followers = Number(document.getElementById("ttCompInput-followers").value) || 0;
+  const likes = Number(document.getElementById("ttCompInput-likes").value) || 0;
+  const videos = Number(document.getElementById("ttCompInput-videos").value) || 0;
+  if(!handle){ showToastMsg("Enter an account handle first", "fa-solid fa-circle-exclamation"); return; }
+  state.tiktokCompetitor = { handle, followers, likes, videos, updatedAt: new Date().toISOString() };
+  persist(true);
+  renderTtCompetitorBenchmark();
+  showToastMsg(`Saved ${handle}`, "fa-solid fa-crosshairs");
+}
+function removeTtCompetitor(){
+  state.tiktokCompetitor = null;
+  persist(true);
+  ["handle","followers","likes","videos"].forEach(f=> document.getElementById("ttCompInput-"+f).value = "");
+  renderTtCompetitorBenchmark();
+  showToastMsg("Competitor removed", "fa-solid fa-xmark");
+}
+function renderTtCompetitorBenchmark(){
+  const resultEl = document.getElementById("ttCompetitorResult");
+  const removeBtn = document.getElementById("removeTtCompetitorBtn");
+  if(!resultEl) return;
+  const comp = state.tiktokCompetitor;
+  if(!comp){
+    if(removeBtn) removeBtn.style.display = "none";
+    resultEl.innerHTML = "";
+    return;
+  }
+  if(removeBtn) removeBtn.style.display = "inline-flex";
+  ["handle","followers","likes","videos"].forEach(f=>{
+    const el = document.getElementById("ttCompInput-"+f);
+    if(document.activeElement !== el) el.value = comp[f] || (f==="handle" ? "" : 0);
+  });
+  const yours = isTiktokConnected()
+    ? { title: state.tiktok.displayName||"Your account", followers: Number(state.tiktok.followers||0), likes: Number(state.tiktok.likes||0), videos: Number(state.tiktok.videos||0) }
+    : { title: "Your TikTok (not connected)", followers:0, likes:0, videos:0 };
+  function diffPill(mine, theirs){
+    if(theirs===0) return `<span class="diff-pill diff-up">—</span>`;
+    const pct = Math.round(((mine-theirs)/Math.abs(theirs))*100);
+    const up = pct>=0;
+    return `<span class="diff-pill ${up?'diff-up':'diff-down'}">${up?'+':''}${pct}% vs them</span>`;
+  }
+  resultEl.innerHTML = `
+    <div style="height:14px"></div>
+    <div class="compare-cols">
+      <div class="compare-card">
+        <div class="section-title">${escapeHtml(yours.title)}</div>
+        <div class="compare-metric"><span>Followers</span><span class="mono">${yours.followers.toLocaleString()}</span></div>
+        <div class="compare-metric"><span>Total likes</span><span class="mono">${yours.likes.toLocaleString()}</span></div>
+        <div class="compare-metric"><span>Videos</span><span class="mono">${yours.videos.toLocaleString()}</span></div>
+      </div>
+      <div class="vs-badge">VS</div>
+      <div class="compare-card">
+        <div class="section-title">${escapeHtml(comp.handle)}</div>
+        <div class="compare-metric"><span>Followers</span><span class="mono">${comp.followers.toLocaleString()}</span></div>
+        <div class="compare-metric"><span>Total likes</span><span class="mono">${comp.likes.toLocaleString()}</span></div>
+        <div class="compare-metric"><span>Videos</span><span class="mono">${comp.videos.toLocaleString()}</span></div>
+      </div>
+    </div>
+    <div style="height:14px"></div>
+    <div class="card">
+      <div class="section-title">Difference</div>
+      <div class="compare-metric"><span>Followers</span>${diffPill(yours.followers, comp.followers)}</div>
+      <div class="compare-metric"><span>Total likes</span>${diffPill(yours.likes, comp.likes)}</div>
+      <div class="compare-metric"><span>Videos</span>${diffPill(yours.videos, comp.videos)}</div>
+    </div>
+    <div class="section-hint" style="margin-top:10px;">Entered manually — last updated ${new Date(comp.updatedAt).toLocaleString()}. Update the fields above and press Save to refresh.</div>
+  `;
+}
+document.getElementById("saveTtCompetitorBtn").addEventListener("click", saveTtCompetitor);
+document.getElementById("removeTtCompetitorBtn").addEventListener("click", removeTtCompetitor);
 
 /* ============================================================
    STATISTICS
