@@ -14,6 +14,12 @@
   window.__EMAILJS_PUBLIC_KEY = "xLfZg5lh0vRA_AGVD";
   window.__EMAILJS_SERVICE_ID = "service_v9xjo4e";
   window.__EMAILJS_TEMPLATE_ID = "template_vxqna01";
+  // Separate template for bug/issue reports, sent to the owner's inbox.
+  // Create this template in the EmailJS dashboard with fields:
+  // {{to_email}}, {{from_email}}, {{report_date}}, {{category}},
+  // {{description}}, {{steps}}, {{screenshot_count}}, {{screenshot_1}} (etc.)
+  window.__EMAILJS_REPORT_TEMPLATE_ID = "template_report_issue";
+  window.__REPORT_OWNER_EMAIL = "owner@uploaddesk.app"; // <-- replace with your real inbox
   if(window.emailjs) emailjs.init({ publicKey: window.__EMAILJS_PUBLIC_KEY });
 </script>
 <script type="module">
@@ -785,6 +791,7 @@ textarea{resize:vertical; min-height:70px;}
       <div class="streak-pill" title="Consecutive days in a row with an Uploaded Short"><i class="fa-solid fa-fire"></i><span id="streakSidebar">0-day streak</span></div>
       <button class="account-pill" id="accountSettingsBtn" type="button" title="Change your password"><i class="fa-solid fa-circle-user"></i><span id="accountUsername">—</span><i class="fa-solid fa-chevron-right chev"></i></button>
       <button class="btn btn-ghost" id="helpBtn" style="width:100%; justify-content:center;" title="Open the quick guide to every screen and button"><i class="fa-solid fa-circle-question"></i> How this works</button>
+      <button class="btn btn-ghost" id="reportIssueBtn" style="width:100%; justify-content:center;" title="Report a bug, UI issue, or request a feature"><i class="fa-solid fa-bug"></i> Report an issue</button>
       <button class="btn btn-ghost" id="themeToggle" style="width:100%; justify-content:center;" title="Switch between dark and light appearance"><i class="fa-solid fa-moon"></i> <span id="themeLabel">Dark mode</span></button>
       <button class="btn btn-ghost" id="logoutBtn" style="width:100%; justify-content:center;" title="Sign out of this account on this device"><i class="fa-solid fa-arrow-right-from-bracket"></i> Log out</button>
       <div style="display:flex; justify-content:center; gap:10px; font-size:10.5px; color:var(--text-faint); margin-top:4px;">
@@ -1615,6 +1622,66 @@ textarea{resize:vertical; min-height:70px;}
   </div>
 </div>
 
+<div class="modal-overlay" id="reportIssueOverlay">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-head">
+      <h3><i class="fa-solid fa-bug" style="color:var(--accent); margin-right:8px;"></i>Report an Issue</h3>
+      <button class="close" id="reportIssueClose" title="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="reportIssueFormWrap">
+        <div class="section-hint" style="margin-top:0;">Found a bug or have a suggestion? This goes straight to our team along with your account email, so we can follow up if we need more details.</div>
+        <div class="form-grid full" style="gap:14px;">
+          <div class="field">
+            <label>Category</label>
+            <select id="report-category">
+              <option value="Bug">Bug</option>
+              <option value="UI Issue">UI Issue</option>
+              <option value="Performance">Performance</option>
+              <option value="Feature Request">Feature Request</option>
+              <option value="Login Issue">Login Issue</option>
+              <option value="Analytics Issue">Analytics Issue</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="field" id="report-other-field" style="display:none;">
+            <label>Please describe the issue</label>
+            <input class="field-input" id="report-other-text" placeholder="Tell us what kind of issue this is">
+          </div>
+          <div class="field">
+            <label>Description</label>
+            <textarea id="report-description" placeholder="What happened? What did you expect instead?" style="min-height:90px;"></textarea>
+          </div>
+          <div class="field">
+            <label>Steps to reproduce (optional)</label>
+            <textarea id="report-steps" placeholder="1. Go to...&#10;2. Click on...&#10;3. See error"></textarea>
+          </div>
+          <div class="field">
+            <label>Screenshots (optional)</label>
+            <input type="file" class="field-input" id="report-screenshots" accept="image/*" multiple>
+            <div class="settings-hint" id="report-screenshots-hint" style="margin-top:2px;">Up to 3 images, 3MB each.</div>
+          </div>
+        </div>
+        <div class="auth-error" id="reportIssueError" style="margin-top:10px;"></div>
+      </div>
+      <div id="reportIssueSuccess" style="display:none; text-align:center; padding:20px 10px;">
+        <i class="fa-solid fa-circle-check" style="font-size:36px; color:var(--teal); margin-bottom:12px; display:block;"></i>
+        <div style="font-family:var(--font-display); font-weight:700; font-size:16px; margin-bottom:6px;">Thanks — your report was sent</div>
+        <div class="section-hint" style="margin-top:0;">We've received it and may reach out at your account email if we need more details.</div>
+      </div>
+    </div>
+    <div class="modal-foot" id="reportIssueFormFoot">
+      <div class="topbar-spacer"></div>
+      <button class="btn" id="reportIssueCancel">Cancel</button>
+      <button class="btn btn-primary" id="reportIssueSubmit"><i class="fa-solid fa-paper-plane"></i> Send report</button>
+    </div>
+    <div class="modal-foot" id="reportIssueSuccessFoot" style="display:none;">
+      <div class="topbar-spacer"></div>
+      <button class="btn btn-primary" id="reportIssueDoneBtn">Done</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
@@ -2374,6 +2441,134 @@ document.getElementById("topHelpBtn").addEventListener("click", openHelpModal);
 document.getElementById("helpClose").addEventListener("click", closeHelpModal);
 document.getElementById("helpGotIt").addEventListener("click", closeHelpModal);
 helpOverlayEl.addEventListener("click", (e)=>{ if(e.target===helpOverlayEl) closeHelpModal(); });
+
+/* ============================================================
+   REPORT AN ISSUE
+============================================================ */
+const reportIssueOverlayEl = document.getElementById("reportIssueOverlay");
+const REPORT_MAX_FILES = 3;
+const REPORT_MAX_FILE_BYTES = 3 * 1024 * 1024; // 3MB per screenshot
+let reportScreenshotsData = []; // [{name, dataUrl}]
+
+function resetReportIssueForm(){
+  document.getElementById("report-category").value = "Bug";
+  document.getElementById("report-other-field").style.display = "none";
+  document.getElementById("report-other-text").value = "";
+  document.getElementById("report-description").value = "";
+  document.getElementById("report-steps").value = "";
+  document.getElementById("report-screenshots").value = "";
+  document.getElementById("report-screenshots-hint").textContent = "Up to 3 images, 3MB each.";
+  document.getElementById("reportIssueError").textContent = "";
+  reportScreenshotsData = [];
+  document.getElementById("reportIssueFormWrap").style.display = "block";
+  document.getElementById("reportIssueSuccess").style.display = "none";
+  document.getElementById("reportIssueFormFoot").style.display = "flex";
+  document.getElementById("reportIssueSuccessFoot").style.display = "none";
+}
+function openReportIssueModal(){
+  resetReportIssueForm();
+  reportIssueOverlayEl.classList.add("open");
+}
+function closeReportIssueModal(){
+  reportIssueOverlayEl.classList.remove("open");
+}
+document.getElementById("reportIssueBtn").addEventListener("click", openReportIssueModal);
+document.getElementById("reportIssueClose").addEventListener("click", closeReportIssueModal);
+document.getElementById("reportIssueCancel").addEventListener("click", closeReportIssueModal);
+document.getElementById("reportIssueDoneBtn").addEventListener("click", closeReportIssueModal);
+reportIssueOverlayEl.addEventListener("click", (e)=>{ if(e.target===reportIssueOverlayEl) closeReportIssueModal(); });
+
+document.getElementById("report-category").addEventListener("change", (e)=>{
+  document.getElementById("report-other-field").style.display = e.target.value === "Other" ? "block" : "none";
+});
+
+document.getElementById("report-screenshots").addEventListener("change", async (e)=>{
+  const errEl = document.getElementById("reportIssueError");
+  const hintEl = document.getElementById("report-screenshots-hint");
+  errEl.textContent = "";
+  const files = Array.from(e.target.files || []).slice(0, REPORT_MAX_FILES);
+  if((e.target.files||[]).length > REPORT_MAX_FILES){
+    errEl.textContent = `Only the first ${REPORT_MAX_FILES} images will be attached.`;
+  }
+  const oversized = files.find(f=> f.size > REPORT_MAX_FILE_BYTES);
+  if(oversized){
+    errEl.textContent = `"${oversized.name}" is over 3MB and won't be attached.`;
+  }
+  const usable = files.filter(f=> f.size <= REPORT_MAX_FILE_BYTES);
+  try{
+    reportScreenshotsData = await Promise.all(usable.map(f=> new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = ()=> resolve({ name:f.name, dataUrl:reader.result });
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    })));
+    hintEl.textContent = reportScreenshotsData.length
+      ? `${reportScreenshotsData.length} screenshot${reportScreenshotsData.length===1?'':'s'} ready to attach.`
+      : "Up to 3 images, 3MB each.";
+  }catch(err){
+    reportScreenshotsData = [];
+    errEl.textContent = "Couldn't read one of the images — try a different file.";
+  }
+});
+
+document.getElementById("reportIssueSubmit").addEventListener("click", async ()=>{
+  const errEl = document.getElementById("reportIssueError");
+  errEl.textContent = "";
+
+  const category = document.getElementById("report-category").value;
+  const otherText = document.getElementById("report-other-text").value.trim();
+  const description = document.getElementById("report-description").value.trim();
+  const steps = document.getElementById("report-steps").value.trim();
+
+  if(category === "Other" && !otherText){
+    errEl.textContent = "Please describe the issue in the field above.";
+    return;
+  }
+  if(!description){
+    errEl.textContent = "Please add a description of the issue.";
+    return;
+  }
+  if(!window.emailjs){
+    errEl.textContent = "Report sending isn't set up yet — the email service failed to load.";
+    return;
+  }
+
+  const btn = document.getElementById("reportIssueSubmit");
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
+
+  try{
+    const params = {
+      to_email: window.__REPORT_OWNER_EMAIL,
+      from_email: (state.youtube && state.youtube.email) || currentUser || "unknown user",
+      report_date: new Date().toLocaleString(),
+      category: category === "Other" ? `Other — ${otherText}` : category,
+      description: description,
+      steps: steps || "(none provided)",
+      screenshot_count: String(reportScreenshotsData.length),
+      screenshot_1: reportScreenshotsData[0] ? reportScreenshotsData[0].dataUrl : "",
+      screenshot_2: reportScreenshotsData[1] ? reportScreenshotsData[1].dataUrl : "",
+      screenshot_3: reportScreenshotsData[2] ? reportScreenshotsData[2].dataUrl : "",
+    };
+    await emailjs.send(
+      window.__EMAILJS_SERVICE_ID,
+      window.__EMAILJS_REPORT_TEMPLATE_ID || window.__EMAILJS_TEMPLATE_ID,
+      params
+    );
+    document.getElementById("reportIssueFormWrap").style.display = "none";
+    document.getElementById("reportIssueSuccess").style.display = "block";
+    document.getElementById("reportIssueFormFoot").style.display = "none";
+    document.getElementById("reportIssueSuccessFoot").style.display = "flex";
+    showToastMsg("Report sent — thank you!", "fa-solid fa-circle-check");
+  }catch(err){
+    console.error("Report send failed:", err);
+    errEl.textContent = "Couldn't send your report — check your internet connection and try again.";
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+});
 
 /* ============================================================
    YOUTUBE CHANNEL CONNECTION (separate from the website login)
