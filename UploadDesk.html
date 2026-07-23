@@ -531,7 +531,24 @@ textarea{resize:vertical; min-height:70px;}
 }
 .modal-body{ overscroll-behavior: contain; }
 #notifPanel{ overscroll-behavior: contain; }
-.auth-screen{position:fixed; inset:0; z-index:500; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:24px; overflow-y:auto;}
+.auth-screen{
+  position:fixed; inset:0; z-index:500;
+  display:flex; align-items:center; justify-content:center; padding:24px; overflow-y:auto;
+  background:
+    radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 42%),
+    radial-gradient(circle at 85% 15%, color-mix(in srgb, var(--violet) 16%, transparent) 0%, transparent 40%),
+    radial-gradient(circle at 80% 85%, color-mix(in srgb, var(--gold) 14%, transparent) 0%, transparent 45%),
+    radial-gradient(circle at 20% 90%, color-mix(in srgb, var(--teal) 12%, transparent) 0%, transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+.auth-screen::before{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background-image: radial-gradient(color-mix(in srgb, var(--text) 8%, transparent) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(circle at 50% 40%, black 0%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle at 50% 40%, black 0%, transparent 70%);
+}
 .auth-screen.hidden{display:none;}
 .loading-screen{position:fixed; inset:0; z-index:900; background:var(--bg); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:18px; transition:opacity .35s ease; opacity:1;}
 .loading-screen.fade-out{opacity:0; pointer-events:none;}
@@ -730,12 +747,7 @@ textarea{resize:vertical; min-height:70px;}
       <div class="mark">U</div>
       <div class="name">Upload <span>Desk</span></div>
     </div>
-    <p class="auth-tagline">Upload Desk is a planning and analytics tool for YouTube Shorts creators. Plan and schedule uploads on a calendar, track views and engagement over time, and optionally connect your YouTube channel to see live subscriber, view, and watch-time stats — all in one place.</p>
-
-    <button type="button" class="btn" id="googleSignInBtn" style="width:100%; justify-content:center; margin-bottom:16px;"><i class="fa-brands fa-google"></i> Continue with Google</button>
-    <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; color:var(--text-faint); font-size:11.5px;">
-      <div style="flex:1; height:1px; background:var(--border);"></div>OR<div style="flex:1; height:1px; background:var(--border);"></div>
-    </div>
+    <p class="auth-tagline">Plan your Shorts, track your growth.</p>
 
     <div class="auth-tabs">
       <button class="auth-tab active" type="button" data-authtab="login">Log in</button>
@@ -761,7 +773,7 @@ textarea{resize:vertical; min-height:70px;}
       <button type="submit" class="btn btn-primary auth-submit"><i class="fa-solid fa-user-plus"></i> Create account</button>
     </form>
 
-    <div class="auth-note">Your account syncs across every device — log in with the same username and password on your phone, tablet, or computer to see the same data everywhere. Your password is never stored in plain text or prefilled, even with Remember me on — only your username is.</div>
+    <div class="auth-note">Remember your username there's no email recovery if you forget it.</div>
     <div class="auth-note" style="margin-top:10px;">By continuing, you agree to our <a href="https://uploaddesk.github.io/UploadDesk/terms.html" target="_blank" rel="noopener">Terms of Service</a> and <a href="https://uploaddesk.github.io/UploadDesk/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</div>
   </div>
   </div>
@@ -1658,8 +1670,8 @@ textarea{resize:vertical; min-height:70px;}
           </div>
           <div class="field">
             <label>Screenshots (optional)</label>
-            <input type="file" class="field-input" id="report-screenshots" accept="image/*" multiple>
-            <div class="settings-hint" id="report-screenshots-hint" style="margin-top:2px;">Up to 3 images, 3MB each.</div>
+            <input type="file" class="field-input" id="report-screenshots" accept="image/*">
+            <div class="settings-hint" id="report-screenshots-hint" style="margin-top:2px;">Up to 1 image, 3MB max.</div>
           </div>
         </div>
         <div class="auth-error" id="reportIssueError" style="margin-top:10px;"></div>
@@ -2210,31 +2222,6 @@ document.querySelectorAll(".auth-tab").forEach(tab=>{
   });
 });
 
-document.getElementById("googleSignInBtn").addEventListener("click", async ()=>{
-  const btn = document.getElementById("googleSignInBtn");
-  const originalHtml = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Signing in…';
-  try{
-    await waitForFirebase();
-    const { auth, GoogleAuthProvider, signInWithPopup } = window.__fb;
-    const provider = new GoogleAuthProvider();
-    const cred = await signInWithPopup(auth, provider);
-    const user = cred.user;
-    const displayName = user.displayName || (user.email ? user.email.split("@")[0] : "User");
-    const key = (user.email || displayName).split("@")[0].toLowerCase();
-    rememberUsername(displayName, true);
-    await completeAuth(displayName, key);
-  } catch(err){
-    if(err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request"){
-      document.getElementById("loginError").textContent = "Couldn't sign in with Google — please try again.";
-    }
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = originalHtml;
-  }
-});
-
 document.getElementById("loginForm").addEventListener("submit", async (e)=>{
   e.preventDefault();
   const submitBtn = e.target.querySelector(".auth-submit");
@@ -2446,7 +2433,7 @@ helpOverlayEl.addEventListener("click", (e)=>{ if(e.target===helpOverlayEl) clos
    REPORT AN ISSUE
 ============================================================ */
 const reportIssueOverlayEl = document.getElementById("reportIssueOverlay");
-const REPORT_MAX_FILES = 3;
+const REPORT_MAX_FILES = 1;
 const REPORT_MAX_FILE_BYTES = 3 * 1024 * 1024; // 3MB per screenshot
 let reportScreenshotsData = []; // [{name, dataUrl}]
 
@@ -2457,9 +2444,10 @@ function resetReportIssueForm(){
   document.getElementById("report-description").value = "";
   document.getElementById("report-steps").value = "";
   document.getElementById("report-screenshots").value = "";
-  document.getElementById("report-screenshots-hint").textContent = "Up to 3 images, 3MB each.";
+  document.getElementById("report-screenshots-hint").textContent = "Up to 1 image, 3MB max.";
   document.getElementById("reportIssueError").textContent = "";
   reportScreenshotsData = [];
+  reportPendingFiles = [];
   document.getElementById("reportIssueFormWrap").style.display = "block";
   document.getElementById("reportIssueSuccess").style.display = "none";
   document.getElementById("reportIssueFormFoot").style.display = "flex";
@@ -2482,32 +2470,112 @@ document.getElementById("report-category").addEventListener("change", (e)=>{
   document.getElementById("report-other-field").style.display = e.target.value === "Other" ? "block" : "none";
 });
 
+let reportPendingFiles = []; // accumulates files picked across multiple dialog opens
+
+function compressImageFile(file, maxDim, quality){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let { width, height } = img;
+        if(width >= height && width > maxDim){
+          height = Math.round(height * (maxDim/width));
+          width = maxDim;
+        } else if(height > width && height > maxDim){
+          width = Math.round(width * (maxDim/height));
+          height = maxDim;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = ()=> reject(new Error("image-decode-failed"));
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 document.getElementById("report-screenshots").addEventListener("change", async (e)=>{
   const errEl = document.getElementById("reportIssueError");
   const hintEl = document.getElementById("report-screenshots-hint");
   errEl.textContent = "";
-  const files = Array.from(e.target.files || []).slice(0, REPORT_MAX_FILES);
-  if((e.target.files||[]).length > REPORT_MAX_FILES){
-    errEl.textContent = `Only the first ${REPORT_MAX_FILES} images will be attached.`;
+
+  // Merge newly picked files with whatever was already picked before,
+  // instead of replacing — file inputs replace their FileList on every
+  // selection, so picking screenshots one at a time (rather than
+  // ctrl/cmd-clicking several at once in one dialog) used to silently
+  // discard everything picked earlier. Skip exact duplicates (same
+  // name+size) picked twice.
+  const newFiles = Array.from(e.target.files || []);
+  newFiles.forEach(f=>{
+    const isDup = reportPendingFiles.some(existing=> existing.name === f.name && existing.size === f.size);
+    if(!isDup) reportPendingFiles.push(f);
+  });
+  if(reportPendingFiles.length > REPORT_MAX_FILES){
+    errEl.textContent = `Only 1 image can be attached per report.`;
   }
+  reportPendingFiles = reportPendingFiles.slice(0, REPORT_MAX_FILES);
+
+  const files = reportPendingFiles;
   const oversized = files.find(f=> f.size > REPORT_MAX_FILE_BYTES);
   if(oversized){
     errEl.textContent = `"${oversized.name}" is over 3MB and won't be attached.`;
   }
   const usable = files.filter(f=> f.size <= REPORT_MAX_FILE_BYTES);
+  if(usable.length){
+    hintEl.textContent = "Compressing screenshots…";
+  }
   try{
-    reportScreenshotsData = await Promise.all(usable.map(f=> new Promise((resolve, reject)=>{
-      const reader = new FileReader();
-      reader.onload = ()=> resolve({ name:f.name, dataUrl:reader.result });
-      reader.onerror = reject;
-      reader.readAsDataURL(f);
-    })));
+    // EmailJS enforces a hard 50KB limit across ALL template variables
+    // combined (confirmed via its own error: "Variables size limit. The
+    // maximum allowed variables size is 50Kb") — not per-image, the WHOLE
+    // request. Base64 also inflates size by ~33% over the raw bytes, so
+    // the real ceiling per image needs real headroom, not just under 50KB.
+    const TOTAL_BUDGET = 34000; // leave room for description/steps/etc too
+    const budgetPerImage = TOTAL_BUDGET / Math.max(usable.length, 1);
+    const steps = [
+      {maxDim:900, quality:0.55},
+      {maxDim:700, quality:0.45},
+      {maxDim:550, quality:0.4},
+      {maxDim:420, quality:0.35},
+      {maxDim:320, quality:0.3},
+      {maxDim:240, quality:0.25},
+    ];
+
+    async function compressToFit(file){
+      let last = null;
+      for(const step of steps){
+        const dataUrl = await compressImageFile(file, step.maxDim, step.quality);
+        last = dataUrl;
+        if(dataUrl.length <= budgetPerImage) return dataUrl;
+      }
+      return last; // couldn't get under budget — return the smallest attempt
+    }
+
+    reportScreenshotsData = await Promise.all(usable.map(async f=>{
+      const dataUrl = await compressToFit(f);
+      return { name:f.name, dataUrl };
+    }));
+
+    const totalChars = reportScreenshotsData.reduce((s,d)=> s + d.dataUrl.length, 0);
+    if(totalChars > TOTAL_BUDGET * usable.length * 1.15){
+      reportScreenshotsData = [];
+      errEl.textContent = "Your screenshots are still too large to email even after compression — try a smaller image or fewer screenshots.";
+      hintEl.textContent = "Up to 1 image, 3MB max.";
+      return;
+    }
     hintEl.textContent = reportScreenshotsData.length
       ? `${reportScreenshotsData.length} screenshot${reportScreenshotsData.length===1?'':'s'} ready to attach.`
       : "Up to 3 images, 3MB each.";
   }catch(err){
     reportScreenshotsData = [];
     errEl.textContent = "Couldn't read one of the images — try a different file.";
+    hintEl.textContent = "Up to 3 images, 3MB each.";
   }
 });
 
