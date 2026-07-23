@@ -1603,6 +1603,8 @@ textarea{resize:vertical; min-height:70px;}
         <input class="field-input" id="settings-username" placeholder="Username" autocomplete="username" disabled>
       </div>
       <div class="settings-hint" style="margin-top:-10px; margin-bottom:14px;">Usernames can't be changed here yet — this field just shows who you're signed in as.</div>
+      <div class="settings-hint" style="margin-top:0; margin-bottom:8px;">Manually tracking: <strong id="settings-current-platform" style="color:var(--text);">—</strong></div>
+      <button class="btn" id="settingsSwitchPlatformBtn" type="button" style="width:100%; justify-content:center; margin-bottom:16px;" title="Switch which platform you track manually — your data for each platform is kept separate"><i class="fa-solid fa-right-left"></i> Switch platform</button>
       <div class="field" style="margin-bottom:14px;">
         <label>New password</label>
         <input type="password" class="field-input" id="settings-new-password" placeholder="Leave blank to keep current password" autocomplete="new-password">
@@ -1749,6 +1751,21 @@ textarea{resize:vertical; min-height:70px;}
   </div>
 </div>
 
+<div class="modal-overlay" id="platformPickerOverlay">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-head">
+      <h3><i class="fa-solid fa-signal" style="color:var(--accent); margin-right:8px;"></i>Choose your platform</h3>
+    </div>
+    <div class="modal-body">
+      <div class="section-hint" style="margin-top:0;">Pick which platform you want to track manually in the Planner. Your numbers for each platform are kept completely separate. You can connect a real account any time from the sidebar, or switch platforms later from Settings.</div>
+      <div style="display:flex; flex-direction:column; gap:12px; margin-top:6px;">
+        <button class="btn btn-primary" id="pickPlatformYoutubeBtn" style="width:100%; justify-content:center; padding:14px;"><i class="fa-brands fa-youtube"></i> Track YouTube manually</button>
+        <button class="btn" id="pickPlatformTiktokBtn" style="width:100%; justify-content:center; padding:14px; background:linear-gradient(135deg, #00F2EA, #000000 55%, #FF0050); border-color:transparent; color:#fff;"><i class="fa-brands fa-tiktok"></i> Track TikTok manually</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
@@ -1787,6 +1804,20 @@ function fillStateDefaults(s){
   s = s || {};
   if(!s.theme) s.theme = "dark";
   if(!s.months) s.months = {};
+  if(s.manualPlatform === undefined) s.manualPlatform = null;
+  if(!s.manualData || typeof s.manualData !== "object") s.manualData = {};
+  if(!s.manualData.youtube || typeof s.manualData.youtube !== "object") s.manualData.youtube = { months:{} };
+  if(!s.manualData.tiktok || typeof s.manualData.tiktok !== "object") s.manualData.tiktok = { months:{} };
+  // One-time migration: older saves kept every manual entry directly in
+  // s.months (implicitly YouTube-flavored, since that's all this app used
+  // to support). Move that data into manualData.youtube.months once, so
+  // nobody's existing Planner entries vanish just because platform-specific
+  // manual storage was introduced.
+  if(!s._migratedManualData && Object.keys(s.months).length && Object.keys(s.manualData.youtube.months).length === 0){
+    s.manualData.youtube.months = s.months;
+    if(!s.manualPlatform) s.manualPlatform = "youtube";
+    s._migratedManualData = true;
+  }
   if(s.lastSaved === undefined) s.lastSaved = null;
   if(!s.lastView) s.lastView = "dashboard";
   if(!Array.isArray(s.ideas)) s.ideas = [];
@@ -2397,6 +2428,16 @@ const settingsOverlayEl = document.getElementById("settingsOverlay");
 
 function openSettingsModal(){
   document.getElementById("settings-username").value = currentUser || "";
+  const platformLabelEl = document.getElementById("settings-current-platform");
+  if(platformLabelEl){
+    if(isYoutubeConnected()) platformLabelEl.textContent = "YouTube (connected account)";
+    else if(isTiktokConnected()) platformLabelEl.textContent = "TikTok (connected account)";
+    else if(state.manualPlatform === "tiktok") platformLabelEl.textContent = "TikTok (manual)";
+    else if(state.manualPlatform === "youtube") platformLabelEl.textContent = "YouTube (manual)";
+    else platformLabelEl.textContent = "Not chosen yet";
+  }
+  const switchBtn = document.getElementById("settingsSwitchPlatformBtn");
+  if(switchBtn) switchBtn.disabled = isYoutubeConnected() || isTiktokConnected();
   document.getElementById("settings-new-password").value = "";
   document.getElementById("settings-confirm-password").value = "";
   document.getElementById("settings-current-password").value = "";
@@ -3158,8 +3199,8 @@ async function reconnectYoutubeSilently(){
 }
 
 async function connectYoutube(promptMode, loginHint){
-  if(isTiktokConnected()){
-    showToastMsg("You're connected to TikTok — disconnect it first to connect YouTube. Only one platform can be connected at a time.", "fa-solid fa-lock");
+  if(isTiktokConnected() || state.manualPlatform === "tiktok"){
+    showToastMsg("You're tracking TikTok — switch platforms in Settings, or disconnect TikTok first to connect YouTube.", "fa-solid fa-lock");
     return;
   }
   if(!googleClientConfigured()){
@@ -3208,7 +3249,8 @@ function disconnectYoutube(){
       renderYoutubeProfile();
       renderTiktokProfile();
       refreshAnalytics();
-      showToastMsg("YouTube channel disconnected — back to manual tracking", "fa-solid fa-link-slash");
+      showToastMsg("YouTube channel disconnected", "fa-solid fa-link-slash");
+      openPlatformPicker({allowCancel:false});
     },
     {title:"Disconnect YouTube channel?", confirmLabel:"Disconnect"}
   );
@@ -3354,11 +3396,66 @@ function renderPlatformBadge(){
     badge.classList.add("is-youtube");
     icon.className = "fa-brands fa-youtube";
     label.textContent = "YouTube connected";
+  } else if(state.manualPlatform === "tiktok"){
+    badge.classList.add("is-tiktok");
+    icon.className = "fa-brands fa-tiktok";
+    label.textContent = "TikTok (manual)";
+  } else if(state.manualPlatform === "youtube"){
+    badge.classList.add("is-youtube");
+    icon.className = "fa-brands fa-youtube";
+    label.textContent = "YouTube (manual)";
   } else {
     icon.className = "fa-solid fa-plug";
     label.textContent = "Not connected";
   }
 }
+
+/* ============================================================
+   MANUAL-TRACKING PLATFORM PICKER
+   ----------------------------------------------------------------
+   Lets someone who hasn't connected a real YouTube/TikTok account still
+   pick which platform their manual Planner entries represent. Shown once
+   on first use, and re-openable any time from Settings > Switch platform.
+   Each platform's manual numbers live in their own bucket (see
+   getMonthsStore()), so switching never overwrites or blends the two.
+============================================================ */
+const platformPickerOverlay = document.getElementById("platformPickerOverlay");
+function openPlatformPicker(opts){
+  opts = opts || {};
+  platformPickerOverlay.dataset.allowCancel = opts.allowCancel ? "1" : "0";
+  platformPickerOverlay.classList.add("open");
+}
+function closePlatformPicker(){
+  platformPickerOverlay.classList.remove("open");
+}
+function chooseManualPlatform(platform){
+  const changed = state.manualPlatform !== platform;
+  state.manualPlatform = platform;
+  persist(true);
+  closePlatformPicker();
+  if(changed){
+    lastCompare = null;
+    refreshAnalytics();
+  }
+  renderPlatformBadge();
+  showToastMsg(
+    `Now tracking ${platform === "tiktok" ? "TikTok" : "YouTube"} manually`,
+    platform === "tiktok" ? "fa-brands fa-tiktok" : "fa-brands fa-youtube"
+  );
+}
+document.getElementById("pickPlatformYoutubeBtn").addEventListener("click", ()=> chooseManualPlatform("youtube"));
+document.getElementById("pickPlatformTiktokBtn").addEventListener("click", ()=> chooseManualPlatform("tiktok"));
+platformPickerOverlay.addEventListener("click", (e)=>{
+  if(e.target === platformPickerOverlay && platformPickerOverlay.dataset.allowCancel === "1") closePlatformPicker();
+});
+document.getElementById("settingsSwitchPlatformBtn").addEventListener("click", ()=>{
+  if(isYoutubeConnected() || isTiktokConnected()){
+    showToastMsg("Disconnect your connected account first to switch manual tracking platforms.", "fa-solid fa-lock");
+    return;
+  }
+  closeSettingsModal();
+  openPlatformPicker({allowCancel:true});
+});
 
 function renderYoutubeProfile(){
   const notConnected = document.getElementById("youtubeNotConnected");
@@ -3384,7 +3481,7 @@ function renderYoutubeProfile(){
   } else {
     notConnected.style.display = "block";
     connected.style.display = "none";
-    const lockedByTiktok = isTiktokConnected();
+    const lockedByTiktok = isTiktokConnected() || state.manualPlatform === "tiktok";
     const connectBtn = document.getElementById("connectYoutubeBtn");
     if(connectBtn) connectBtn.disabled = lockedByTiktok;
     let lockMsg = document.getElementById("ytLockedMsg");
@@ -3547,8 +3644,8 @@ async function sha256Base64Url(str){
 // Kicks off the real TikTok login — redirects the whole page to TikTok's
 // authorize screen (Login Kit for Web is redirect-based, not a popup).
 async function connectTiktok(forceSwitch){
-  if(isYoutubeConnected()){
-    showToastMsg("You're connected to YouTube — disconnect it first to connect TikTok. Only one platform can be connected at a time.", "fa-solid fa-lock");
+  if(isYoutubeConnected() || state.manualPlatform === "youtube"){
+    showToastMsg("You're tracking YouTube — switch platforms in Settings, or disconnect YouTube first to connect TikTok.", "fa-solid fa-lock");
     return;
   }
   if(!tiktokClientConfigured()){
@@ -3720,6 +3817,7 @@ function disconnectTiktok(){
       renderYoutubeProfile();
       refreshAnalytics();
       showToastMsg("TikTok account disconnected", "fa-solid fa-link-slash");
+      openPlatformPicker({allowCancel:false});
     },
     {title:"Disconnect TikTok account?", confirmLabel:"Disconnect"}
   );
@@ -3777,7 +3875,7 @@ function renderTiktokProfile(){
   } else {
     notConnected.style.display = "block";
     connected.style.display = "none";
-    const lockedByYoutube = isYoutubeConnected();
+    const lockedByYoutube = isYoutubeConnected() || state.manualPlatform === "youtube";
     const connectBtn = document.getElementById("connectTiktokBtn");
     if(connectBtn) connectBtn.disabled = lockedByYoutube;
     let lockMsg = document.getElementById("ttLockedMsg");
@@ -4525,13 +4623,26 @@ viewCursor.setDate(1);
 let statsCursor = new Date();
 statsCursor.setDate(1);
 
+// Returns the manual-tracking data store for whichever platform is
+// currently active (YouTube or TikTok), creating it if needed. Every
+// Planner read/write goes through this, so switching platforms in
+// Settings can never mix up or overwrite the other platform's numbers.
+function activeManualPlatformKey(){
+  return state.manualPlatform === "tiktok" ? "tiktok" : "youtube";
+}
+function getMonthsStore(){
+  const p = activeManualPlatformKey();
+  if(!state.manualData[p]) state.manualData[p] = { months:{} };
+  return state.manualData[p].months;
+}
 function ensureMonth(key){
-  if(!state.months[key]) state.months[key] = { days:{} };
-  return state.months[key];
+  const store = getMonthsStore();
+  if(!store[key]) store[key] = { days:{} };
+  return store[key];
 }
 function getDay(iso){
   const key = iso.slice(0,7);
-  const m = state.months[key];
+  const m = getMonthsStore()[key];
   if(m && m.days[iso]) return m.days[iso];
   return null;
 }
@@ -4547,7 +4658,7 @@ function setDay(iso, data){
 function deleteDay(iso, opts){
   opts = opts || {};
   const key = iso.slice(0,7);
-  const m = state.months[key];
+  const m = getMonthsStore()[key];
   if(m && m.days[iso]){
     const entry = m.days[iso];
     if(!opts.skipTrash && dayHasContent(entry)){
@@ -4559,8 +4670,9 @@ function deleteDay(iso, opts){
 }
 function allDaysFlat(){
   const out = [];
-  Object.keys(state.months).forEach(mk=>{
-    const days = state.months[mk].days || {};
+  const store = getMonthsStore();
+  Object.keys(store).forEach(mk=>{
+    const days = store[mk].days || {};
     Object.keys(days).forEach(iso=>{
       out.push({iso, entry:days[iso]});
     });
@@ -4569,7 +4681,8 @@ function allDaysFlat(){
   return out;
 }
 function daysInMonth(key){
-  const days = state.months[key] ? state.months[key].days : {};
+  const store = getMonthsStore();
+  const days = store[key] ? store[key].days : {};
   return Object.keys(days||{}).sort().map(iso=>({iso, entry:days[iso]}));
 }
 
@@ -4865,17 +4978,19 @@ function renderDashboardBanner(){
     const btn = document.getElementById("dashboardGoToYtBtn");
     if(btn) btn.addEventListener("click", ()=> activateView("youtube"));
   } else {
+    const mp = state.manualPlatform === "tiktok" ? "TikTok" : "YouTube";
+    const mpIcon = state.manualPlatform === "tiktok" ? "fa-brands fa-tiktok" : "fa-brands fa-youtube";
     banner.innerHTML = `
       <div class="card" style="margin-bottom:16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-        <div style="width:40px; height:40px; border-radius:10px; background:var(--surface-3); display:flex; align-items:center; justify-content:center; color:var(--text-dim); flex-shrink:0;"><i class="fa-solid fa-pen"></i></div>
+        <div style="width:40px; height:40px; border-radius:10px; background:var(--surface-3); display:flex; align-items:center; justify-content:center; color:var(--text-dim); flex-shrink:0;"><i class="${mpIcon}"></i></div>
         <div style="flex:1; min-width:0;">
-          <div style="font-weight:700; font-size:13.5px;">Manual mode</div>
-          <div style="font-size:11.5px; color:var(--text-dim);">Connect YouTube for automatic stats.</div>
+          <div style="font-weight:700; font-size:13.5px;">Manual mode — tracking ${mp}</div>
+          <div style="font-size:11.5px; color:var(--text-dim);">Entering your own ${mp} numbers in the Planner. Connect a real account any time for automatic stats.</div>
         </div>
-        <button class="btn btn-sm btn-primary" id="dashboardConnectYtBtn"><i class="fa-brands fa-youtube"></i> Connect YouTube</button>
+        <button class="btn btn-sm btn-primary" id="dashboardConnectYtBtn"><i class="${mpIcon}"></i> Connect ${mp}</button>
       </div>`;
     const btn = document.getElementById("dashboardConnectYtBtn");
-    if(btn) btn.addEventListener("click", ()=> activateView("youtube"));
+    if(btn) btn.addEventListener("click", ()=> activateView(state.manualPlatform === "tiktok" ? "tiktok" : "youtube"));
   }
 }
 
@@ -4889,6 +5004,15 @@ function renderDashboard(){
   document.getElementById("dashDailyViewsHint").textContent = "24-hour view counts for each day you logged a Short.";
   document.getElementById("dashStatusTitle").textContent = "Upload status breakdown";
   document.getElementById("dashStatusHint").textContent = "How many of this month's Shorts are Planned, Editing, Scheduled, Uploaded, or Skipped.";
+  if(!isAnyPlatformConnected()){
+    if(state.manualPlatform === "tiktok"){
+      document.getElementById("dashStatusTitle").textContent = "Views, likes & comments";
+      document.getElementById("dashStatusHint").textContent = "Combined totals across this month's tracked uploads.";
+    } else {
+      document.getElementById("dashStatusTitle").textContent = "Watch hours, views, likes & comments";
+      document.getElementById("dashStatusHint").textContent = "Combined totals across this month's tracked uploads.";
+    }
+  }
   const greetEl = document.getElementById("pageSub");
   const activeNav = document.querySelector(".nav-item.active");
   if(greetEl && activeNav && activeNav.dataset.view === "dashboard"){
@@ -4930,9 +5054,21 @@ function renderDashboard(){
   });
 
   const streak = computeStreak();
+  const isTiktokManual = state.manualPlatform === "tiktok";
 
-  const cards = [
-    {label:"Shorts planned", value:planned, sub:MONTH_NAMES[new Date().getMonth()], icon:"fa-solid fa-list-check", cls:"stat-accent", source:"manual"},
+  // TikTok's core manual-entry metrics (likes/shares) don't map to
+  // YouTube's watch-hours concept, so each platform gets its own 4th card
+  // instead of reusing the same one relabeled.
+  const totalLikesManual = monthDays.reduce((s,d)=> s+Number(d.entry.likes||0), 0);
+  const totalSharesManual = monthDays.reduce((s,d)=> s+Number(d.entry.shares||0), 0);
+  const totalCommentsManual = monthDays.reduce((s,d)=> s+Number(d.entry.comments||0), 0);
+
+  const cards = isTiktokManual ? [
+    {label:"Videos uploaded", value:uploaded, sub:`${remaining} remaining`, icon:"fa-solid fa-circle-check", cls:"stat-teal", source:"manual"},
+    {label:"Total views", value:totalViews.toLocaleString(), sub:`${withViews.length} tracked uploads`, icon:"fa-solid fa-eye", cls:"stat-gold", source:"manual"},
+    {label:"Total likes", value:totalLikesManual.toLocaleString(), sub:`${withViews.length} tracked uploads`, icon:"fa-solid fa-heart", cls:"stat-teal", source:"manual"},
+    {label:"Upload streak", value:streak+"d", sub:"consecutive days", icon:"fa-solid fa-fire", cls:"stat-accent", source:"manual"},
+  ] : [
     {label:"Shorts uploaded", value:uploaded, sub:`${remaining} remaining`, icon:"fa-solid fa-circle-check", cls:"stat-teal", source:"manual"},
     {label:"Total views", value:totalViews.toLocaleString(), sub:`${withViews.length} tracked uploads`, icon:"fa-solid fa-eye", cls:"stat-gold", source:"manual"},
     {label:"Watch hours", value:totalWatchHoursManual.toLocaleString(), sub:`${withWatchtime.length} logged manually`, icon:"fa-solid fa-clock", cls:"stat-teal", source:"manual"},
@@ -4941,7 +5077,7 @@ function renderDashboard(){
   document.getElementById("statCards").innerHTML = cards.map(c=>`
     <div class="card stat-card lift">
       <i class="glyph ${c.icon} ${c.cls}"></i>
-      <div class="src-tag ${c.source==='youtube' ? 'src-youtube' : 'src-manual'}"><i class="${c.source==='youtube' ? 'fa-brands fa-youtube' : 'fa-solid fa-pen'}"></i>${c.source==='youtube' ? 'Live' : 'Manual'}</div>
+      <div class="src-tag ${c.source==='youtube' ? 'src-youtube' : 'src-manual'}"><i class="${isTiktokManual ? 'fa-brands fa-tiktok' : 'fa-brands fa-youtube'}"></i>Manual</div>
       <div class="label">${c.label}</div>
       <div class="value ${c.cls}">${c.value}</div>
       <div class="sub">${c.sub}</div>
@@ -4967,7 +5103,11 @@ function renderDashboard(){
   bw.innerHTML = rowFor(best,"best","#2FE5C4") + rowFor(worst,"worst","#FF4D5E");
 
   renderDailyViewsChart(monthDays);
-  renderStatusChart(monthDays);
+  if(isTiktokManual){
+    renderTiktokManualBreakdown(monthDays);
+  } else {
+    renderYoutubeManualBreakdown(monthDays);
+  }
 }
 
 /* Connected-mode dashboard: same card/chart slots, but sourced entirely
@@ -5131,6 +5271,25 @@ function renderDashboardConnectedMode(){
       }
     });
 
+    // Same reasoning as the TikTok branch above — no Planner statuses
+    // exist in connected mode, so show real channel totals instead.
+    const breakdownEl = document.getElementById("statusChartBreakdown");
+    if(breakdownEl){
+      const rows = [
+        {label:"Views", value:totalViews, color:"#12E3C9"},
+        {label:"Likes", value:totalLikes, color:"#FFB648"},
+        {label:"Comments", value:totalComments, color:"#7C5CFC"},
+        {label:"Watch Hours", value:watchHoursVal, color:"#FF6FCB"},
+      ];
+      breakdownEl.innerHTML = rows.map(r=>`
+        <div class="stat-list-item">
+          <span class="k" style="display:flex; align-items:center; gap:8px;">
+            <span style="width:10px; height:10px; border-radius:3px; background:${r.color}; flex-shrink:0;"></span>
+            ${r.label}
+          </span>
+          <span class="v">${r.label==="Watch Hours" ? r.value.toLocaleString()+"h" : r.value.toLocaleString()}</span>
+        </div>`).join("");
+    }
     }
 }
 
@@ -5225,6 +5384,26 @@ function renderDashboardTiktokMode(){
         }
       }
     });
+
+    // Connected mode has no "Planned/Editing/Scheduled" concept — replace
+    // the manual-mode status breakdown with real per-video totals instead
+    // of leaving stale Planner-status markup on screen.
+    const breakdownEl = document.getElementById("statusChartBreakdown");
+    if(breakdownEl){
+      const rows = [
+        {label:"Views", value:totalViews, color:"#00C9C2"},
+        {label:"Likes", value:totalLikes, color:"#FF0050"},
+        {label:"Comments", value:totalComments, color:"#7C5CFC"},
+      ];
+      breakdownEl.innerHTML = rows.map(r=>`
+        <div class="stat-list-item">
+          <span class="k" style="display:flex; align-items:center; gap:8px;">
+            <span style="width:10px; height:10px; border-radius:3px; background:${r.color}; flex-shrink:0;"></span>
+            ${r.label}
+          </span>
+          <span class="v">${r.value.toLocaleString()}</span>
+        </div>`).join("");
+    }
   }
 }
 
@@ -5272,12 +5451,40 @@ function renderStatusChart(monthDays){
     options:{
       responsive:true, maintainAspectRatio:false, cutout:"62%",
       plugins:{
-        legend:{position:"bottom", labels:{color:chartTextColor(), boxWidth:10, font:{size:11}}},
+legend:{
+          position:"bottom", labels:{
+            color:chartTextColor(), boxWidth:10, font:{size:11},
+            generateLabels:(chart)=>{
+              const base = Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart);
+              base.push({ text:"↺ Reset", fillStyle:"transparent", strokeStyle:"transparent", hidden:false, index:-1, fontColor:"#7C5CFC", lineWidth:0 });
+              return base;
+            }
+          },
+          onClick:(evt, legendItem, legend)=>{
+            const chart = legend.chart;
+            const meta = chart.getDatasetMeta(0);
+            chart.tooltip.setActiveElements([], {x:0, y:0});
+            chart.setActiveElements([]);
+            if(legendItem.index === -1){
+              meta.data.forEach(el=> el.hidden = false);
+              chart.update();
+              return;
+            }
+            const clickedIndex = legendItem.index;
+            const alreadyIsolated = meta.data.every((el,i)=> el.hidden === (i !== clickedIndex));
+            if(alreadyIsolated){
+              meta.data.forEach(el=> el.hidden = false);
+            } else {
+              meta.data.forEach((el,i)=> el.hidden = (i !== clickedIndex));
+            }
+            chart.update();
+          }
+        },
         tooltip:{
           callbacks:{
             label:(item)=>{
               const pct = total>0 ? ((item.parsed/total)*100).toFixed(1) : "0.0";
-              return ` ${item.label}: ${item.parsed} (${pct}%)`;
+              return ` ${item.label}: ${item.parsed.toLocaleString()} (${pct}%)`;
             }
           }
         }
@@ -5287,14 +5494,208 @@ function renderStatusChart(monthDays){
 
   const breakdownEl = document.getElementById("statusChartBreakdown");
   if(breakdownEl){
-    breakdownEl.innerHTML = STATUSES.map((s,i)=>`
-      <div class="stat-list-item">
+    const rows = [
+      {label:"Views", value:totalViews, color:"#00C9C2"},
+      {label:"Likes", value:totalLikes, color:"#FF0050"},
+      {label:"Comments", value:totalComments, color:"#7C5CFC"},
+    ];
+    breakdownEl.innerHTML = rows.map((r,i)=>`
+      <div class="stat-list-item breakdown-row-clickable" data-idx="${i}" style="cursor:pointer;">
         <span class="k" style="display:flex; align-items:center; gap:8px;">
-          <span style="width:10px; height:10px; border-radius:3px; background:${STATUS_COLORS[s]}; flex-shrink:0;"></span>
-          ${s}
+          <span style="width:10px; height:10px; border-radius:3px; background:${r.color}; flex-shrink:0;"></span>
+          ${r.label}
         </span>
-        <span class="v">${counts[i]}</span>
-      </div>`).join("");
+        <span class="v">${r.value.toLocaleString()}</span>
+      </div>`).join("")
+      + `<div class="breakdown-reset-btn" style="cursor:pointer; text-align:center; padding:10px 0 2px 0; font-size:11.5px; color:var(--accent); font-weight:600;"><i class="fa-solid fa-rotate-left"></i> Reset</div>`;
+    breakdownEl.querySelectorAll(".breakdown-row-clickable").forEach(row=>{
+      row.addEventListener("click", ()=>{
+        if(!chartStatus) return;
+        const idx = Number(row.dataset.idx);
+        const meta = chartStatus.getDatasetMeta(0);
+        const alreadyIsolated = meta.data.every((el,i)=> el.hidden === (i !== idx));
+        if(alreadyIsolated){ meta.data.forEach(el=> el.hidden = false); }
+        else { meta.data.forEach((el,i)=> el.hidden = (i !== idx)); }
+        chartStatus.update();
+      });
+    });
+    const resetBtn = breakdownEl.querySelector(".breakdown-reset-btn");
+    if(resetBtn){
+      resetBtn.addEventListener("click", ()=>{
+        if(!chartStatus) return;
+        chartStatus.getDatasetMeta(0).data.forEach(el=> el.hidden = false);
+        chartStatus.update();
+      });
+    }
+  }
+}
+
+function renderTiktokManualBreakdown(monthDays){
+  if(!chartLibReady("statusChart")) return;
+  const ctx = document.getElementById("statusChart");
+  const totalViews = monthDays.reduce((s,d)=> s+Number(d.entry.views24||0), 0);
+  const totalLikes = monthDays.reduce((s,d)=> s+Number(d.entry.likes||0), 0);
+  const totalComments = monthDays.reduce((s,d)=> s+Number(d.entry.comments||0), 0);
+  const total = totalViews + totalLikes + totalComments;
+  if(chartStatus) chartStatus.destroy();
+  chartStatus = new Chart(ctx, {
+    type:"doughnut",
+    data:{ labels:["Views","Likes","Comments"], datasets:[{ data:[totalViews,totalLikes,totalComments], backgroundColor:["#00C9C2","#FF0050","#7C5CFC"], borderWidth:0 }]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:"62%",
+      interaction:{ mode:"nearest", intersect:true },
+      events:["mousemove","mouseout","click","touchstart","touchmove","touchend"],
+      plugins:{
+        legend:{
+          position:"bottom", labels:{color:chartTextColor(), boxWidth:10, font:{size:11}},
+          onClick:(evt, legendItem, legend)=>{
+            const chart = legend.chart;
+            const meta = chart.getDatasetMeta(0);
+            chart.tooltip.setActiveElements([], {x:0, y:0});
+            chart.setActiveElements([]);
+            const clickedIndex = legendItem.index;
+            const alreadyIsolated = meta.data.every((el,i)=> el.hidden === (i !== clickedIndex));
+            if(alreadyIsolated){
+              meta.data.forEach(el=> el.hidden = false);
+            } else {
+              meta.data.forEach((el,i)=> el.hidden = (i !== clickedIndex));
+            }
+            chart.update();
+          }
+        },
+        tooltip:{
+          callbacks:{
+            label:(item)=>{
+              const pct = total>0 ? ((item.parsed/total)*100).toFixed(1) : "0.0";
+              return ` ${item.label}: ${item.parsed.toLocaleString()} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const breakdownEl = document.getElementById("statusChartBreakdown");
+  if(breakdownEl){
+    const rows = [
+      {label:"Views", value:totalViews, color:"#00C9C2"},
+      {label:"Likes", value:totalLikes, color:"#FF0050"},
+      {label:"Comments", value:totalComments, color:"#7C5CFC"},
+    ];
+    breakdownEl.innerHTML = rows.map((r,i)=>`
+      <div class="stat-list-item breakdown-row-clickable" data-idx="${i}" style="cursor:pointer;">
+        <span class="k" style="display:flex; align-items:center; gap:8px;">
+          <span style="width:10px; height:10px; border-radius:3px; background:${r.color}; flex-shrink:0;"></span>
+          ${r.label}
+        </span>
+        <span class="v">${r.value.toLocaleString()}</span>
+      </div>`).join("")
+      + `<div class="breakdown-reset-btn" style="cursor:pointer; text-align:center; padding:10px 0 2px 0; font-size:11.5px; color:var(--accent); font-weight:600;"><i class="fa-solid fa-rotate-left"></i> Reset</div>`;
+    breakdownEl.querySelectorAll(".breakdown-row-clickable").forEach(row=>{
+      row.addEventListener("click", ()=>{
+        if(!chartStatus) return;
+        const idx = Number(row.dataset.idx);
+        const meta = chartStatus.getDatasetMeta(0);
+        const alreadyIsolated = meta.data.every((el,i)=> el.hidden === (i !== idx));
+        if(alreadyIsolated){ meta.data.forEach(el=> el.hidden = false); }
+        else { meta.data.forEach((el,i)=> el.hidden = (i !== idx)); }
+        chartStatus.update();
+      });
+    });
+    const resetBtn = breakdownEl.querySelector(".breakdown-reset-btn");
+    if(resetBtn){
+      resetBtn.addEventListener("click", ()=>{
+        if(!chartStatus) return;
+        chartStatus.getDatasetMeta(0).data.forEach(el=> el.hidden = false);
+        chartStatus.update();
+      });
+    }
+  }
+}
+
+function renderYoutubeManualBreakdown(monthDays){
+  if(!chartLibReady("statusChart")) return;
+  const ctx = document.getElementById("statusChart");
+  const totalWatchHours = monthDays.reduce((s,d)=> s+Number(d.entry.watchtime||0), 0);
+  const totalViews = monthDays.reduce((s,d)=> s+Number(d.entry.views24||0), 0);
+  const totalLikes = monthDays.reduce((s,d)=> s+Number(d.entry.likes||0), 0);
+  const totalComments = monthDays.reduce((s,d)=> s+Number(d.entry.comments||0), 0);
+  const total = totalWatchHours + totalViews + totalLikes + totalComments;
+  if(chartStatus) chartStatus.destroy();
+  chartStatus = new Chart(ctx, {
+    type:"doughnut",
+    data:{ labels:["Watch Hours","Views","Likes","Comments"], datasets:[{ data:[totalWatchHours,totalViews,totalLikes,totalComments], backgroundColor:["#FF6FCB","#12E3C9","#FFB648","#7C5CFC"], borderWidth:0 }]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:"62%",
+      interaction:{ mode:"nearest", intersect:true },
+      events:["mousemove","mouseout","click","touchstart","touchmove","touchend"],
+      plugins:{
+        legend:{
+          position:"bottom", labels:{color:chartTextColor(), boxWidth:10, font:{size:11}},
+          onClick:(evt, legendItem, legend)=>{
+            const chart = legend.chart;
+            const meta = chart.getDatasetMeta(0);
+            chart.tooltip.setActiveElements([], {x:0, y:0});
+            chart.setActiveElements([]);
+            const clickedIndex = legendItem.index;
+            const alreadyIsolated = meta.data.every((el,i)=> el.hidden === (i !== clickedIndex));
+            if(alreadyIsolated){
+              meta.data.forEach(el=> el.hidden = false);
+            } else {
+              meta.data.forEach((el,i)=> el.hidden = (i !== clickedIndex));
+            }
+            chart.update();
+          }
+        },
+        tooltip:{
+          callbacks:{
+            label:(item)=>{
+              if(item.label === "Watch Hours") return ` Watch Hours: ${item.parsed.toLocaleString()}h`;
+              const pct = total>0 ? ((item.parsed/total)*100).toFixed(1) : "0.0";
+              return ` ${item.label}: ${item.parsed.toLocaleString()} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const breakdownEl = document.getElementById("statusChartBreakdown");
+  if(breakdownEl){
+    const rows = [
+      {label:"Watch Hours", value:totalWatchHours, color:"#FF6FCB", suffix:"h"},
+      {label:"Views", value:totalViews, color:"#12E3C9"},
+      {label:"Likes", value:totalLikes, color:"#FFB648"},
+      {label:"Comments", value:totalComments, color:"#7C5CFC"},
+    ];
+    breakdownEl.innerHTML = rows.map((r,i)=>`
+      <div class="stat-list-item breakdown-row-clickable" data-idx="${i}" style="cursor:pointer;">
+        <span class="k" style="display:flex; align-items:center; gap:8px;">
+          <span style="width:10px; height:10px; border-radius:3px; background:${r.color}; flex-shrink:0;"></span>
+          ${r.label}
+        </span>
+        <span class="v">${r.value.toLocaleString()}${r.suffix||""}</span>
+      </div>`).join("")
+      + `<div class="breakdown-reset-btn" style="cursor:pointer; text-align:center; padding:10px 0 2px 0; font-size:11.5px; color:var(--accent); font-weight:600;"><i class="fa-solid fa-rotate-left"></i> Reset</div>`;
+    breakdownEl.querySelectorAll(".breakdown-row-clickable").forEach(row=>{
+      row.addEventListener("click", ()=>{
+        if(!chartStatus) return;
+        const idx = Number(row.dataset.idx);
+        const meta = chartStatus.getDatasetMeta(0);
+        const alreadyIsolated = meta.data.every((el,i)=> el.hidden === (i !== idx));
+        if(alreadyIsolated){ meta.data.forEach(el=> el.hidden = false); }
+        else { meta.data.forEach((el,i)=> el.hidden = (i !== idx)); }
+        chartStatus.update();
+      });
+    });
+    const resetBtn = breakdownEl.querySelector(".breakdown-reset-btn");
+    if(resetBtn){
+      resetBtn.addEventListener("click", ()=>{
+        if(!chartStatus) return;
+        chartStatus.getDatasetMeta(0).data.forEach(el=> el.hidden = false);
+        chartStatus.update();
+      });
+    }
   }
 }
 
@@ -5365,7 +5766,7 @@ function renderPlanner(){
   if(plannerHintEl){
     plannerHintEl.textContent = isAnyPlatformConnected()
       ? `This calendar is now just a personal notepad — your real stats come from ${isTiktokConnected() ? "TikTok" : "YouTube"}.`
-      : "Click any day to add a Short and enter your own stats manually.";
+      : `Click any day to add a Short and enter your own ${state.manualPlatform === "tiktok" ? "TikTok" : "YouTube"} stats manually.`;
   }
   const mk = monthKeyOf(viewCursor);
   document.getElementById("monthLabel").textContent = `${MONTH_NAMES[viewCursor.getMonth()]} ${viewCursor.getFullYear()}`;
@@ -5455,7 +5856,7 @@ function renderPlanner(){
 
 document.getElementById("duplicateMonthBtn").addEventListener("click", ()=>{
   const mk = monthKeyOf(viewCursor);
-  const src = state.months[mk];
+  const src = getMonthsStore()[mk];
   if(!src || Object.keys(src.days).length===0){ showToastMsg("Nothing to duplicate in this month", "fa-solid fa-circle-exclamation"); return; }
   const nextMonth = new Date(viewCursor); nextMonth.setMonth(nextMonth.getMonth()+1);
   const nk = monthKeyOf(nextMonth);
@@ -5478,7 +5879,8 @@ document.getElementById("resetMonthBtn").addEventListener("click", ()=>{
     "Move every Short in this month to the Trash? You can restore them later, or delete them permanently from the Trash.",
     ()=>{
       const mk = monthKeyOf(viewCursor);
-      const m = state.months[mk];
+      const monthsStore = getMonthsStore();
+      const m = monthsStore[mk];
       if(m && m.days){
         Object.keys(m.days).forEach(iso=>{
           const entry = m.days[iso];
@@ -5487,7 +5889,7 @@ document.getElementById("resetMonthBtn").addEventListener("click", ()=>{
           }
         });
       }
-      state.months[mk] = {days:{}};
+      monthsStore[mk] = {days:{}};
       persist(true);
       refreshAnalytics();
       showToastMsg("Month moved to Trash", "fa-solid fa-trash-can");
@@ -7354,7 +7756,7 @@ function renderAllCharts(){
 ============================================================ */
 function updateStorageInfo(){
   document.getElementById("lastSaved").textContent = state.lastSaved ? new Date(state.lastSaved).toLocaleString() : "—";
-  document.getElementById("monthsTracked").textContent = Object.keys(state.months).length;
+  document.getElementById("monthsTracked").textContent = Object.keys(getMonthsStore()).length;
 }
 
 document.getElementById("exportJsonBtn").addEventListener("click", ()=>{
@@ -7634,12 +8036,16 @@ function initApp(){
   // gets blocked and just spams console errors instead of working.
   checkAchievementsForNewUnlocks();
   checkAndFireNotifications();
-  try{
-    if(!localStorage.getItem(FIRST_HELP_SEEN_KEY)){
-      localStorage.setItem(FIRST_HELP_SEEN_KEY, "1");
-      setTimeout(openHelpModal, 500);
-    }
-  }catch(e){}
+  if(!isAnyPlatformConnected() && !state.manualPlatform){
+    openPlatformPicker({allowCancel:false});
+  } else {
+    try{
+      if(!localStorage.getItem(FIRST_HELP_SEEN_KEY)){
+        localStorage.setItem(FIRST_HELP_SEEN_KEY, "1");
+        setTimeout(openHelpModal, 500);
+      }
+    }catch(e){}
+  }
 }
 
 // Fully unlimited, free, forever auto-refresh: uses the public API key
