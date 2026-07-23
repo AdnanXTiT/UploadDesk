@@ -129,6 +129,9 @@ img, svg, canvas{max-width:100%;}
 .nav-item.active::before{content:''; position:absolute; left:-16px; top:50%; transform:translateY(-50%); width:3px; height:60%; border-radius:0 4px 4px 0; background:linear-gradient(180deg, var(--accent), var(--gold));}
 .nav-item:active{transform:scale(.97);}
 .sidebar-foot{margin-top:auto; display:flex; flex-direction:column; gap:8px;}
+.platform-badge{display:flex; align-items:center; gap:8px; background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border); border-radius:var(--radius-s); padding:9px 12px; font-size:12.5px; font-weight:600;}
+.platform-badge.is-youtube{background:rgba(255,0,0,.12); color:#FF4D4D; border-color:rgba(255,0,0,.25);}
+.platform-badge.is-tiktok{background:rgba(0,242,234,.10); color:#00C9C2; border-color:rgba(0,242,234,.25);}
 .streak-pill{display:flex; align-items:center; gap:8px; background:var(--gold-dim); color:var(--gold); border-radius:var(--radius-s); padding:10px 12px; font-size:13px; font-weight:600;}
 .streak-pill i{animation:flicker 1.6s infinite ease-in-out;}
 @keyframes flicker{0%,100%{opacity:1;}50%{opacity:.55;}}
@@ -800,6 +803,7 @@ textarea{resize:vertical; min-height:70px;}
     </nav>
     <div class="sidebar-foot">
       <div class="sync-badge synced" id="syncBadge"><i class="fa-solid fa-circle"></i><span id="syncBadgeLabel">Saved</span></div>
+      <div class="platform-badge" id="platformBadge" title="Which platform's live stats are currently connected"><i class="fa-solid fa-plug" id="platformBadgeIcon"></i><span id="platformBadgeLabel">Not connected</span></div>
       <div class="streak-pill" title="Consecutive days in a row with an Uploaded Short"><i class="fa-solid fa-fire"></i><span id="streakSidebar">0-day streak</span></div>
       <button class="account-pill" id="accountSettingsBtn" type="button" title="Change your password"><i class="fa-solid fa-circle-user"></i><span id="accountUsername">—</span><i class="fa-solid fa-chevron-right chev"></i></button>
       <button class="btn btn-ghost" id="helpBtn" style="width:100%; justify-content:center;" title="Open the quick guide to every screen and button"><i class="fa-solid fa-circle-question"></i> How this works</button>
@@ -840,7 +844,6 @@ textarea{resize:vertical; min-height:70px;}
         </div>
       </div>
       <button class="icon-btn" id="topHelpBtn" title="How this works"><i class="fa-solid fa-circle-question"></i></button>
-      <button class="icon-btn" id="saveBtn" title="Save now (everything also saves automatically as you type)"><i class="fa-solid fa-cloud-arrow-up"></i></button>
     </div>
 
     <div class="content">
@@ -3285,10 +3288,31 @@ async function autoRefreshYoutubeStatsSilently(){
   }
 }
 
+function renderPlatformBadge(){
+  const badge = document.getElementById("platformBadge");
+  const icon = document.getElementById("platformBadgeIcon");
+  const label = document.getElementById("platformBadgeLabel");
+  if(!badge) return;
+  badge.classList.remove("is-youtube","is-tiktok");
+  if(isTiktokConnected()){
+    badge.classList.add("is-tiktok");
+    icon.className = "fa-brands fa-tiktok";
+    label.textContent = "TikTok connected";
+  } else if(isYoutubeConnected()){
+    badge.classList.add("is-youtube");
+    icon.className = "fa-brands fa-youtube";
+    label.textContent = "YouTube connected";
+  } else {
+    icon.className = "fa-solid fa-plug";
+    label.textContent = "Not connected";
+  }
+}
+
 function renderYoutubeProfile(){
   const notConnected = document.getElementById("youtubeNotConnected");
   const connected = document.getElementById("youtubeConnected");
   if(!notConnected || !connected) return;
+  renderPlatformBadge();
   const yt = state.youtube || { connected:false };
   if(yt.connected){
     if(recordSubsSnapshot(yt.subs)) persist(false);
@@ -3682,6 +3706,7 @@ function renderTiktokProfile(){
   const notConnected = document.getElementById("tiktokNotConnected");
   const connected = document.getElementById("tiktokConnected");
   if(!notConnected || !connected) return;
+  renderPlatformBadge();
   const tt = state.tiktok || { connected:false };
   if(tt.connected){
     if(recordTiktokFollowersSnapshot(tt.followers)) persist(false);
@@ -4636,7 +4661,6 @@ document.getElementById("sidebarScrim").addEventListener("click", ()=>{
   document.getElementById("sidebar").classList.remove("open");
   document.getElementById("sidebarScrim").classList.remove("show");
 });
-document.getElementById("saveBtn").addEventListener("click", ()=> pushToServer(true));
 
 /* ============================================================
    DASHBOARD
@@ -7452,6 +7476,7 @@ function initApp(){
   }
   activateView(state.lastView || "dashboard", {skipPersist:true});
   renderYoutubeProfile();
+  renderPlatformBadge();
   if(window.__pendingTiktokCode){
     const code = window.__pendingTiktokCode;
     window.__pendingTiktokCode = null;
