@@ -1946,6 +1946,7 @@ async function startRemoteSync(){
     closeModalsForDeletedItems();
     refreshAnalytics();
     renderYoutubeProfile();
+    renderTiktokProfile();
     setSyncBadge("synced", "Synced");
     showToastMsg("Updated from another device", "fa-solid fa-arrows-rotate");
   }, (err)=>{
