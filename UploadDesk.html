@@ -4767,8 +4767,7 @@ function activateView(v, opts){
   document.getElementById("pageTitle").textContent = VIEW_META[v].title;
   document.getElementById("pageSub").textContent = VIEW_META[v].sub;
   if(window.innerWidth <= 760){
-    document.getElementById("sidebar").classList.remove("open");
-    document.getElementById("sidebarScrim").classList.remove("show");
+    setSidebarOpen(false);
   }
   if(v==="dashboard") renderDashboard();
   if(v==="planner") renderPlanner();
@@ -4818,13 +4817,22 @@ function activateView(v, opts){
 document.querySelectorAll(".nav-item").forEach(btn=>{
   btn.addEventListener("click", ()=> activateView(btn.dataset.view));
 });
+function setSidebarOpen(open){
+  const sidebar = document.getElementById("sidebar");
+  const scrim = document.getElementById("sidebarScrim");
+  sidebar.classList.toggle("open", open);
+  scrim.classList.toggle("show", open);
+  if(window.innerWidth <= 760){
+    document.body.style.overflow = open ? "hidden" : "";
+    document.body.style.touchAction = open ? "none" : "";
+  }
+}
 document.getElementById("menuBtn").addEventListener("click", ()=>{
-  document.getElementById("sidebar").classList.toggle("open");
-  document.getElementById("sidebarScrim").classList.toggle("show");
+  const sidebar = document.getElementById("sidebar");
+  setSidebarOpen(!sidebar.classList.contains("open"));
 });
 document.getElementById("sidebarScrim").addEventListener("click", ()=>{
-  document.getElementById("sidebar").classList.remove("open");
-  document.getElementById("sidebarScrim").classList.remove("show");
+  setSidebarOpen(false);
 });
 
 /* ============================================================
@@ -4874,12 +4882,10 @@ document.getElementById("sidebarScrim").addEventListener("click", ()=>{
 
     if(!isOpen && startedAtEdge && deltaX > SWIPE_THRESHOLD_PX){
       // Swiped right from the left edge — open the sidebar
-      sidebar.classList.add("open");
-      scrim.classList.add("show");
+      setSidebarOpen(true);
     } else if(isOpen && deltaX < -SWIPE_THRESHOLD_PX){
       // Swiped left while open — close the sidebar
-      sidebar.classList.remove("open");
-      scrim.classList.remove("show");
+      setSidebarOpen(false);
     }
   }, {passive:true});
 })();
